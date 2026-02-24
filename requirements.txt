@@ -6,3 +6,5 @@ pandas
 openpyxl
 dotenv
 flask-mail
+gunicorn
+psycopg2-binary

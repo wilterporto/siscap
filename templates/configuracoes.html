@@ -1,0 +1,109 @@
+{% extends 'base.html' %}
+
+{% block title %}Configurações{% endblock %}
+
+{% block content %}
+<div style="font-size: 0.9rem;">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div
+                class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h1 class="h2">Configurações</h1>
+            </div>
+
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-transparent py-3">
+                    <h5 class="card-title fw-bold mb-0 text-primary">
+                        <i class="bi bi-gear-fill me-2"></i>Personalização
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('configuracoes') }}" method="POST" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="login_image" class="form-label fw-bold small text-muted text-uppercase">Imagem
+                                de
+                                Fundo (Login)</label>
+                            <input class="form-control" type="file" id="login_image" name="login_image"
+                                accept="image/*">
+                            {% if config.login_image %}
+                            <div class="mt-2">
+                                <small class="text-muted">Imagem atual:</small>
+                                <img src="{{ url_for('static', filename=config.login_image) }}" alt="Preview"
+                                    class="img-thumbnail d-block mt-1" style="max-height: 150px;">
+                            </div>
+                            {% endif %}
+                            <div class="form-text">Recomendado: 1920x1080px (JPG/PNG).</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="favicon" class="form-label fw-bold small text-muted text-uppercase">
+                                Favicon (Ícone do Navegador)
+                            </label>
+                            <input class="form-control" type="file" id="favicon" name="favicon"
+                                accept=".ico,.png,.jpg,.jpeg">
+                            {% if config.favicon_path %}
+                            <div class="mt-2">
+                                <small class="text-muted">Favicon atual:</small>
+                                <img src="{{ url_for('static', filename=config.favicon_path) }}" alt="Favicon"
+                                    class="img-thumbnail d-block mt-1" style="width: 32px; height: 32px;">
+                            </div>
+                            {% endif %}
+                            <div class="form-text">Recomendado: 32x32px ou 16x16px (ICO/PNG).</div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <h5 class="card-title fw-bold mb-3 text-primary">
+                            <i class="bi bi-envelope-fill me-2"></i>Configuração de E-mail (SMTP)
+                        </h5>
+
+                        <div class="row g-3">
+                            <div class="col-md-8">
+                                <label for="smtp_server" class="form-label">Servidor SMTP</label>
+                                <input type="text" class="form-control" id="smtp_server" name="smtp_server"
+                                    value="{{ config.smtp_server or '' }}" placeholder="smtp.gmail.com">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="smtp_port" class="form-label">Porta</label>
+                                <input type="number" class="form-control" id="smtp_port" name="smtp_port"
+                                    value="{{ config.smtp_port or 587 }}">
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="smtp_username" class="form-label">Usuário SMTP</label>
+                                <input type="text" class="form-control" id="smtp_username" name="smtp_username"
+                                    value="{{ config.smtp_username or '' }}">
+                            </div>
+                            <div class="col-md-6">
+                                <label for="smtp_password" class="form-label">Senha SMTP</label>
+                                <input type="password" class="form-control" id="smtp_password" name="smtp_password"
+                                    value="{{ config.smtp_password or '' }}">
+                            </div>
+
+                            <div class="col-12">
+                                <label for="smtp_sender_email" class="form-label">E-mail do Remetente (De)</label>
+                                <input type="email" class="form-control" id="smtp_sender_email" name="smtp_sender_email"
+                                    value="{{ config.smtp_sender_email or '' }}" placeholder="noreply@exemplo.com">
+                            </div>
+
+                            <div class="col-12">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="smtp_use_tls"
+                                        name="smtp_use_tls" {% if config.smtp_use_tls %}checked{% endif %}>
+                                    <label class="form-check-label" for="smtp_use_tls">Usar TLS (Segurança)</label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                            <button type="submit" class="btn btn-primary px-4">
+                                <i class="bi bi-save me-2"></i>Salvar Configurações
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,244 @@
+{% extends 'base.html' %}
+
+{% block title %}Usuários{% endblock %}
+
+{% block content %}
+<div style="font-size: 0.9rem;">
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3">
+        <h1 class="h2">Usuários</h1>
+        <div class="btn-toolbar mb-2 mb-md-0">
+            <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#userModal"
+                onclick="openCreateModal()">
+                <i class="bi bi-person-plus-fill me-2"></i>Novo Usuário
+            </button>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="bg-light">
+                        <tr>
+                            <th class="ps-4 py-3">Usuário</th>
+                            <th class="py-3">Status</th>
+                            <th class="text-end pe-4 py-3">Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td class="ps-4 fw-bold">
+                                <i class="bi bi-person-circle me-2 text-secondary"></i>
+                                {{ user.username }}
+                            </td>
+                            <td>
+                                <span class="badge rounded-pill {{ 'bg-success' if user.active else 'bg-secondary' }}">
+                                    {{ 'Ativo' if user.active else 'Inativo' }}
+                                </span>
+                            </td>
+                            <td class="text-end pe-4">
+                                <button class="btn btn-sm btn-outline-primary me-1" data-bs-toggle="modal"
+                                    data-bs-target="#userModal" data-userid="{{ user.id }}"
+                                    data-username="{{ user.username }}" data-email="{{ user.email or '' }}"
+                                    data-cpf="{{ user.cpf or '' }}"
+                                    data-active="{{ 'true' if user.active else 'false' }}" onclick="openEditModal(this)"
+                                    title="Editar">
+                                    <i class="bi bi-pencil-square"></i>
+                                </button>
+
+                                {% if user.id != current_user.id %}
+                                <form action="{{ url_for('gerenciar_usuario') }}" method="POST" class="d-inline"
+                                    onsubmit="event.preventDefault(); const form = this; showConfirmation('Tem certeza que deseja excluir este usuário?', function() { form.submit(); });">
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="user_id" value="{{ user.id }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content bg-dark text-light border-secondary">
+                <form action="{{ url_for('gerenciar_usuario') }}" method="POST">
+                    <div class="modal-header border-secondary">
+                        <h5 class="modal-title" id="userModalLabel">Novo Usuário</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                            aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <input type="hidden" name="action" id="modalAction" value="create">
+                        <input type="hidden" name="user_id" id="modalUserId">
+
+                        <div class="mb-3" id="cpfGroup">
+                            <label for="cpf" class="form-label">CPF</label>
+                            <input type="text" class="form-control bg-dark text-light border-secondary" id="cpf"
+                                name="cpf" placeholder="000.000.000-00" maxlength="14" oninput="maskCPF(this)">
+                        </div>
+
+                        <div class="mb-3" id="usernameGroup">
+                            <label for="username" class="form-label">Nome de Usuário (Login)</label>
+                            <input type="text" class="form-control bg-dark text-light border-secondary" id="username"
+                                name="username">
+                        </div>
+
+                        <div class="mb-3" id="emailGroup">
+                            <label for="email" class="form-label">E-mail</label>
+                            <input type="email" class="form-control bg-dark text-light border-secondary" id="email"
+                                name="email">
+                        </div>
+
+                        <div class="mb-3 form-check form-switch" id="activeGroup">
+                            <input class="form-check-input" type="checkbox" role="switch" id="active" name="active"
+                                checked>
+                            <label class="form-check-label" for="active">Usuário Ativo</label>
+                            <div class="form-text text-muted">Desative para impedir o login deste usuário.</div>
+                        </div>
+
+                        <div class="mb-3" id="passwordGroup">
+                            <label for="password" class="form-label" id="passwordLabel">Senha</label>
+                            <input type="password" class="form-control bg-dark text-light border-secondary"
+                                id="password" name="password">
+                            <div class="form-text text-muted" id="passwordHelp"></div>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-secondary">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary">Salvar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const currentUserId = '{{ current_user.id }}';
+        let isProgrammaticChange = false;
+
+        function maskCPF(input) {
+            let value = input.value.replace(/\D/g, "");
+            if (value.length > 11) value = value.slice(0, 11);
+            value = value.replace(/(\d{3})(\d)/, "$1.$2");
+            value = value.replace(/(\d{3})(\d)/, "$1.$2");
+            value = value.replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+            input.value = value;
+        }
+
+        function openCreateModal() {
+            const modalTitle = document.getElementById('userModalLabel');
+            const modalAction = document.getElementById('modalAction');
+            const modalUserId = document.getElementById('modalUserId');
+
+            modalTitle.textContent = 'Novo Usuário';
+            modalAction.value = 'create';
+            modalUserId.value = '';
+
+            // Show all groups
+            document.getElementById('cpfGroup').style.display = 'block';
+            document.getElementById('usernameGroup').style.display = 'block';
+            document.getElementById('emailGroup').style.display = 'block';
+            document.getElementById('activeGroup').style.display = 'block';
+
+            const cpfInput = document.getElementById('cpf');
+            cpfInput.value = '';
+            cpfInput.readOnly = false;
+            cpfInput.required = true;
+
+            const usernameInput = document.getElementById('username');
+            usernameInput.value = '';
+            usernameInput.readOnly = false;
+            usernameInput.required = true;
+
+            const emailInput = document.getElementById('email');
+            emailInput.value = '';
+            emailInput.readOnly = false;
+            emailInput.required = true;
+
+            const activeInput = document.getElementById('active');
+            activeInput.checked = true;
+            activeInput.disabled = false;
+
+            const passwordInput = document.getElementById('password');
+            passwordInput.required = true;
+            document.getElementById('passwordLabel').textContent = 'Senha';
+            document.getElementById('passwordHelp').textContent = '';
+        }
+
+        function openEditModal(btn) {
+            const id = btn.dataset.userid;
+            const username = btn.dataset.username;
+            const email = btn.dataset.email;
+            const cpf = btn.dataset.cpf;
+            const active = btn.dataset.active === 'true';
+
+            const modalTitle = document.getElementById('userModalLabel');
+            const modalAction = document.getElementById('modalAction');
+            const modalUserId = document.getElementById('modalUserId');
+
+            modalTitle.textContent = 'Editar Usuário - ' + username;
+            modalAction.value = 'edit';
+            modalUserId.value = id;
+
+            // Show groups
+            document.getElementById('cpfGroup').style.display = 'block';
+            document.getElementById('usernameGroup').style.display = 'block';
+            document.getElementById('emailGroup').style.display = 'block';
+            document.getElementById('activeGroup').style.display = 'block';
+
+            const cpfInput = document.getElementById('cpf');
+            cpfInput.value = cpf;
+            cpfInput.readOnly = true;
+            cpfInput.required = false;
+
+            const usernameInput = document.getElementById('username');
+            usernameInput.value = username;
+            usernameInput.readOnly = false;
+            usernameInput.required = true;
+
+            const emailInput = document.getElementById('email');
+            emailInput.value = email;
+            emailInput.readOnly = false;
+            emailInput.required = true;
+
+            const activeInput = document.getElementById('active');
+            activeInput.checked = active;
+
+            if (id == currentUserId) {
+                activeInput.disabled = true;
+            } else {
+                activeInput.disabled = false;
+            }
+
+            const passwordInput = document.getElementById('password');
+            passwordInput.required = false;
+            document.getElementById('passwordLabel').textContent = 'Nova Senha (Opcional)';
+            document.getElementById('passwordHelp').textContent = 'Deixe em branco para manter a senha atual.';
+        }
+        document.getElementById('active').addEventListener('change', function () {
+            if (isProgrammaticChange) {
+                isProgrammaticChange = false;
+                return;
+            }
+
+            if (!this.checked) {
+                this.checked = true; // Reverte a mudança visualmente enquanto aguarda confirmação
+
+                showConfirmation("ATENÇÃO: Ao inativar este usuário, ele perderá IMEDIATAMENTE o acesso ao sistema e não poderá mais realizar login.\n\nDeseja realmente continuar?", () => {
+                    isProgrammaticChange = true;
+                    document.getElementById('active').checked = false;
+                });
+            }
+        });
+    </script>
+</div>
+{% endblock %}

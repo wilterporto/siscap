@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+
+{% block title %}Importações{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="mb-0">
+        <i class="bi bi-file-earmark-text-fill me-2 text-primary"></i>
+        Logs de Importação
+    </h2>
+</div>
+
+{% if arquivos|length == 0 %}
+<div class="card border-0 shadow-sm">
+    <div class="card-body text-center py-5">
+        <i class="bi bi-inbox text-muted" style="font-size: 4rem;"></i>
+        <h5 class="mt-3 text-muted">Nenhum arquivo de log encontrado</h5>
+        <p class="text-muted">Os logs de erros de importação aparecerão aqui quando houver erros durante a importação de
+            alunos.</p>
+    </div>
+</div>
+{% else %}
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-transparent py-3">
+        <h5 class="mb-0">
+            <i class="bi bi-list-ul me-2"></i>
+            Arquivos de Log ({{ arquivos|length }})
+        </h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-dark mb-0">
+                <thead>
+                    <tr>
+                        <th scope="col" class="border-0">
+                            <i class="bi bi-calendar-event me-1"></i>Data/Hora
+                        </th>
+                        <th scope="col" class="border-0">
+                            <i class="bi bi-person me-1"></i>Usuário
+                        </th>
+                        <th scope="col" class="border-0">
+                            <i class="bi bi-hdd me-1"></i>Tamanho
+                        </th>
+                        <th scope="col" class="border-0 text-end">
+                            <i class="bi bi-gear me-1"></i>Ações
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for arquivo in arquivos %}
+                    <tr>
+                        <td>
+                            <i class="bi bi-clock text-info me-2"></i>
+                            {{ arquivo.data }}
+                        </td>
+                        <td>
+                            <i class="bi bi-person-circle text-primary me-2"></i>
+                            {{ arquivo.username }}
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary">{{ arquivo.tamanho }}</span>
+                        </td>
+                        <td class="text-end">
+                            <div class="btn-group btn-group-sm" role="group">
+                                <a href="{{ url_for('download_importacao', filename=arquivo.filename) }}"
+                                    class="btn btn-outline-primary" title="Baixar arquivo">
+                                    <i class="bi bi-download"></i> Baixar
+                                </a>
+                                <button type="button" class="btn btn-outline-danger"
+                                    onclick="confirmDelete('{{ url_for('excluir_importacao', filename=arquivo.filename) }}', 'este arquivo de log')"
+                                    title="Excluir arquivo">
+                                    <i class="bi bi-trash"></i> Excluir
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <div class="card-footer bg-transparent text-muted">
+        <small>
+            <i class="bi bi-info-circle me-1"></i>
+            Os arquivos de log contêm informações sobre erros ocorridos durante a importação de alunos.
+        </small>
+    </div>
+</div>
+{% endif %}
+
+<style>
+    .table-dark {
+        --bs-table-bg: #1e1e2e;
+        --bs-table-hover-bg: rgba(137, 180, 250, 0.1);
+    }
+
+    .table-dark thead th {
+        background-color: #181825;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        letter-spacing: 0.5px;
+        padding: 1rem;
+    }
+
+    .table-dark tbody td {
+        padding: 1rem;
+        vertical-align: middle;
+    }
+
+    .btn-outline-primary {
+        border-color: #89b4fa;
+        color: #89b4fa;
+    }
+
+    .btn-outline-primary:hover {
+        background-color: #89b4fa;
+        border-color: #89b4fa;
+        color: #1e1e2e;
+    }
+
+    .btn-outline-danger {
+        border-color: #f38ba8;
+        color: #f38ba8;
+    }
+
+    .btn-outline-danger:hover {
+        background-color: #f38ba8;
+        border-color: #f38ba8;
+        color: #1e1e2e;
+    }
+
+    .badge {
+        font-weight: 500;
+        padding: 0.5rem 0.75rem;
+    }
+</style>
+{% endblock %}

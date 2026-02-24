@@ -1,0 +1,62 @@
+{% extends 'base.html' %}
+
+{% block title %}Irmãos{% endblock %}
+
+{% block content %}
+<div style="font-size: 0.9rem;">
+    <div class="container-fluid">
+        <div
+            class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+            <h1 class="h2">Irmãos</h1>
+            <div class="btn-toolbar mb-2 mb-md-0">
+                <span class="text-muted small">Agrupados por Nome da Mãe</span>
+            </div>
+        </div>
+
+        <div class="row">
+            {% for mae, alunos in irmaos %}
+            <div class="col-md-6 mb-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header bg-light py-2">
+                        <h6 class="card-title fw-bold mb-0 text-primary">
+                            <i class="bi bi-person-heart me-2"></i>Mãe: {{ mae }}
+                        </h6>
+                    </div>
+                    <div class="card-body p-0">
+                        <ul class="list-group list-group-flush">
+                            {% for aluno in alunos %}
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span class="fw-medium">{{ aluno.nome }}</span>
+                                    <br>
+                                    <small class="text-muted">
+                                        <i class="bi bi-calendar me-1"></i>{{ aluno.data_nascimento.strftime('%d/%m/%Y')
+                                        if aluno.data_nascimento else 'Não informada'
+                                        }}
+                                    </small>
+                                </div>
+                                <span class="badge bg-secondary rounded-pill">
+                                    {{ aluno.caixa.nome_formatado }}
+                                </span>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    <div class="card-footer bg-transparent py-2">
+                        <small class="text-muted">Total de {{ alunos|length }} registros.</small>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="col-12">
+                <div class="alert alert-info text-center py-5">
+                    <i class="bi bi-people fs-1 d-block mb-3 opacity-50"></i>
+                    <h5>Nenhum grupo de irmãos encontrado.</h5>
+                    <p class="mb-0">Não há mães com mais de um filho cadastrado (ignorando homônimos).</p>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

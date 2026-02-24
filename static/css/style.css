@@ -1,0 +1,123 @@
+/* Custom overrides for Bootstrap to ensure a premium dark theme */
+
+body {
+    background-color: #11111b !important;
+    /* Extremely dark blue/black */
+    color: #cdd6f4 !important;
+}
+
+/* Sidebar Customization - Removed */
+
+.nav-link {
+    color: #a6adc8 !important;
+}
+
+.nav-link:hover,
+.nav-link.active {
+    background-color: rgba(137, 180, 250, 0.1) !important;
+    color: #89b4fa !important;
+    border-radius: 8px;
+}
+
+/* Card Enhancements */
+.card {
+    background-color: #1e1e2e !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+    border-radius: 12px !important;
+}
+
+.card-header {
+    background-color: transparent !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+    padding-bottom: 15px !important;
+    padding-top: 15px !important;
+}
+
+/* Form Controls */
+.form-control,
+.form-select {
+    background-color: #313244 !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    color: #cdd6f4 !important;
+    border-radius: 8px !important;
+}
+
+.form-control:focus,
+.form-select:focus {
+    background-color: #45475a !important;
+    border-color: #89b4fa !important;
+    box-shadow: 0 0 0 0.25rem rgba(137, 180, 250, 0.25) !important;
+}
+
+/* Buttons */
+.btn-primary {
+    background-color: #89b4fa !important;
+    border-color: #89b4fa !important;
+    color: #1e1e2e !important;
+    font-weight: 600 !important;
+    border-radius: 8px !important;
+    padding: 10px 20px !important;
+}
+
+.btn-primary:hover {
+    background-color: #b4befe !important;
+    /* Lighter shade */
+    border-color: #b4befe !important;
+}
+
+.btn-secondary {
+    background-color: #45475a !important;
+    border-color: #585b70 !important;
+    color: #cdd6f4 !important;
+}
+
+/* Table overrides */
+.table {
+    color: #cdd6f4 !important;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.03) !important;
+    color: #cdd6f4 !important;
+}
+
+.table th {
+    border-bottom: 2px solid rgba(255, 255, 255, 0.1) !important;
+    color: #a6adc8 !important;
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 0.5px;
+}
+
+.table td {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Pagination */
+.page-link {
+    background-color: #313244 !important;
+    border-color: rgba(255, 255, 255, 0.1) !important;
+    color: #cdd6f4 !important;
+}
+
+.page-item.active .page-link {
+    background-color: #89b4fa !important;
+    border-color: #89b4fa !important;
+    color: #1e1e2e !important;
+}
+
+.page-link:hover {
+    background-color: #45475a !important;
+    color: #cdd6f4 !important;
+}
+
+/* Dashboard Utilities */
+.stat-card {
+    transition: transform 0.2s;
+}
+
+.stat-card:hover {
+    transform: translateY(-5px);
+}

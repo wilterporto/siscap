@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-bs-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SISCAP - Gestão de Alunos Inativos</title>
+    <!-- Favicon -->
+    {% if system_config and system_config.favicon_path %}
+    <link rel="icon" href="{{ url_for('static', filename=system_config.favicon_path) }}">
+    {% endif %}
+    <!-- Bootstrap 5.3 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Application CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            background-color: #11111b;
+            /* Moved main background to body for full coverage */
+        }
+
+        .navbar {
+            background-color: #1e1e2e;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .nav-link {
+            color: rgba(255, 255, 255, 0.7);
+            transition: all 0.3s;
+        }
+
+        .nav-link:hover,
+        .nav-link.active {
+            color: #89b4fa;
+        }
+
+        .navbar-brand {
+            color: #89b4fa !important;
+            font-weight: 700;
+        }
+
+        /* Card enhancements */
+        .card {
+            background-color: #1e1e2e;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .dropdown-menu-dark {
+            background-color: #1e1e2e;
+            border-color: rgba(255, 255, 255, 0.05);
+        }
+    </style>
+</head>
+
+<body>
+    {% if current_user.is_authenticated %}
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top mb-4">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('dashboard') }}">
+                <i class="bi bi-mortarboard-fill me-2"></i>SISCAP
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/' %}active{% endif %}"
+                            href="{{ url_for('dashboard') }}">
+                            <i class="bi bi-speedometer2 me-1"></i>Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/caixas' %}active{% endif %}"
+                            href="{{ url_for('caixas') }}">
+                            <i class="bi bi-box-seam me-1"></i>Caixas
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path.startswith('/alunos') %}active{% endif %}"
+                            href="{{ url_for('alunos') }}">
+                            <i class="bi bi-people me-1"></i>Alunos
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/homonimos' %}active{% endif %}"
+                            href="{{ url_for('homonimos') }}">
+                            <i class="bi bi-person-bounding-box me-1"></i>Homônimos
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.path == '/irmaos' %}active{% endif %}"
+                            href="{{ url_for('irmaos') }}">
+                            <i class="bi bi-person-hearts me-1"></i>Irmãos
+                        </a>
+                    </li>
+
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle {% if request.path in ['/usuarios', '/configuracoes', '/importacoes', '/auditoria'] %}active{% endif %}"
+                            href="#" id="adminDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-shield-lock me-1"></i>Administração
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-dark" aria-labelledby="adminDropdown">
+                            <li>
+                                <a class="dropdown-item {% if request.path == '/usuarios' %}active{% endif %}"
+                                    href="{{ url_for('listar_usuarios') }}">
+                                    <i class="bi bi-people-fill me-2"></i>Usuários
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item {% if request.path == '/importacoes' %}active{% endif %}"
+                                    href="{{ url_for('importacoes') }}">
+                                    <i class="bi bi-file-earmark-text-fill me-2"></i>Importações
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item {% if request.path == '/auditoria' %}active{% endif %}"
+                                    href="{{ url_for('auditoria') }}">
+                                    <i class="bi bi-clipboard-data-fill me-2"></i>Auditoria
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item {% if request.path == '/configuracoes' %}active{% endif %}"
+                                    href="{{ url_for('configuracoes') }}">
+                                    <i class="bi bi-gear-fill me-2"></i>Configurações
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+
+                <ul class="navbar-nav">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-person-circle me-1"></i>{{ current_user.username }}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-dark dropdown-menu-end" aria-labelledby="userDropdown">
+                            <li><a class="dropdown-item" href="{{ url_for('logout') }}"><i
+                                        class="bi bi-box-arrow-right me-2"></i>Sair</a></li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+    {% endif %}
+
+    <div class="container-fluid">
+        <main class="main-content">
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+            <div class="mb-4">
+                {% for category, message in messages %}
+                {% if category != 'success' %}
+                <div class="alert alert-{{ 'danger' if category == 'error' else 'info' }} alert-dismissible fade show"
+                    role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+                {% else %}
+                <!-- Hidden success message for JS to pick up -->
+                <div class="d-none success-message-data" data-message="{{ message }}"></div>
+                {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% endwith %}
+
+            <!-- Content Block -->
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <!-- Confirmation Modal -->
+    <div class="modal fade" id="confirmationModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark text-light border-secondary">
+                <div class="modal-body text-center p-4">
+                    <i class="bi bi-exclamation-circle text-warning display-1 mb-3"></i>
+                    <h4 class="mb-3">Confirmação</h4>
+                    <p id="confirmationMessage" class="mb-4" style="white-space: pre-line;">Tem certeza que deseja
+                        realizar esta ação?</p>
+                    <div class="d-flex justify-content-center gap-2">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-danger" id="confirmActionBtn">Confirmar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Info/Alert Modal -->
+    <div class="modal fade" id="infoModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark text-light border-secondary">
+                <div class="modal-body text-center p-4">
+                    <i class="bi bi-info-circle text-info display-1 mb-3"></i>
+                    <h4 class="mb-3">Atenção</h4>
+                    <p id="infoMessage" class="mb-4" style="white-space: pre-line;">Mensagem informativa.</p>
+                    <div class="d-flex justify-content-center">
+                        <button type="button" class="btn btn-primary px-4" data-bs-dismiss="modal">OK</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Popup (Toast) -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1055;">
+        <div id="successToast" class="toast align-items-center text-bg-success border-0" role="alert"
+            aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body fs-6">
+                    <i class="bi bi-check-circle-fill me-2"></i>
+                    <span id="toastMessageContent">Ação realizada com sucesso!</span>
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"
+                    aria-label="Close"></button>
+            </div>
+            <div class="progress" style="height: 3px;">
+                <div class="progress-bar bg-white" role="progressbar" style="width: 100%; transition: width 3s linear;"
+                    aria-valuenow="100" aria-valuemin="0" aria-valuemax="100"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap Bundle JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
+        crossorigin="anonymous"></script>
+
+    <script>
+        // Global Confirmation System
+        let confirmCallback = null;
+        let confirmModal = null; // Will be initialized on DOMContentLoaded
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize Modal
+            const modalEl = document.getElementById('confirmationModal');
+            if (modalEl) {
+                confirmModal = new bootstrap.Modal(modalEl);
+
+                const confirmBtn = document.getElementById('confirmActionBtn');
+                if (confirmBtn) {
+                    confirmBtn.addEventListener('click', () => {
+                        if (confirmCallback) confirmCallback();
+                        confirmModal.hide();
+                    });
+                }
+            }
+
+            // Initialize Info Modal
+            const infoModalEl = document.getElementById('infoModal');
+            if (infoModalEl) {
+                window.infoModal = new bootstrap.Modal(infoModalEl);
+            }
+
+            // Toast System
+            const toastEl = document.getElementById('successToast');
+            if (toastEl) {
+                const toast = new bootstrap.Toast(toastEl, { delay: 3000 });
+                const successDivs = document.querySelectorAll('.success-message-data');
+
+                // Show if there are messages
+                if (successDivs.length > 0) {
+                    // Collect messages if multiple or just show first/last. 
+                    // Typically just showing the last one or all in sequence.
+                    // The requirement is just "exhibited in a popup". 
+                    // I'll show the first one for simplicity or just cycle them.
+                    // A single toast might overwrite content. 
+                    // Let's show the last one if multiple.
+
+                    const lastMsg = successDivs[successDivs.length - 1].dataset.message;
+                    document.getElementById('toastMessageContent').textContent = lastMsg;
+                    toast.show();
+
+                    // Simple animation for progress bar
+                    setTimeout(() => {
+                        const pb = toastEl.querySelector('.progress-bar');
+                        if (pb) pb.style.width = '0%';
+                    }, 100);
+                }
+            }
+        });
+
+        function showConfirmation(message, callback) {
+            const msgEl = document.getElementById('confirmationMessage');
+            if (msgEl) msgEl.textContent = message;
+            confirmCallback = callback;
+            if (confirmModal) confirmModal.show();
+        }
+
+        function showAlert(message) {
+            const msgEl = document.getElementById('infoMessage');
+            if (msgEl) msgEl.textContent = message;
+            if (window.infoModal) window.infoModal.show();
+        }
+
+        // Global Helper for Deleting Resources via POST form
+        // Exposes it to window so inline onclicks can find it
+        window.confirmDelete = function (url, name) {
+            showConfirmation(`Tem certeza que deseja excluir ${name}?`, () => {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = url;
+                document.body.appendChild(form);
+                form.submit();
+            });
+        };
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+
+</html>

@@ -1,0 +1,240 @@
+{% extends 'base.html' %}
+
+{% block title %}{% if aluno %}Editar Aluno{% else %}Novo Aluno{% endif %}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center" style="font-size: 0.9rem;">
+    <div class="col-md-8 col-lg-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-transparent py-3 border-bottom-0">
+                <h5 class="card-title fw-bold text-center mb-0">
+                    <i
+                        class="bi {% if aluno %}bi-pencil-square{% else %}bi-person-plus-fill{% endif %} text-primary me-2"></i>
+                    {% if aluno %}Editar Aluno{% else %}Dados do Aluno{% endif %}
+                </h5>
+            </div>
+            <div class="card-body p-4">
+                <form action="{{ url_for('edit_aluno', id=aluno.id) if aluno else url_for('novo_aluno') }}"
+                    method="POST" class="needs-validation" novalidate>
+                    <div class="mb-3">
+                        <label for="nome" class="form-label text-muted small text-uppercase fw-bold">Nome
+                            Completo <span style="color: red;">*</span></label>
+                        <div class="input-group has-validation input-group-sm">
+                            <span class="input-group-text bg-transparent border-end-0"><i
+                                    class="bi bi-person"></i></span>
+                            <input type="text" class="form-control border-start-0 ps-0" id="nome" name="nome" required
+                                oninput="sugerirCaixa()" placeholder="Nome do aluno"
+                                value="{{ aluno.nome if aluno else '' }}">
+                            <div class="invalid-feedback">Por favor, informe o nome.</div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="data_nascimento" class="form-label text-muted small text-uppercase fw-bold">Data de
+                            Nascimento</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-transparent border-end-0"><i
+                                    class="bi bi-calendar"></i></span>
+                            <input type="date" class="form-control border-start-0 ps-0" id="data_nascimento"
+                                name="data_nascimento" min="1900-01-01"
+                                value="{{ aluno.data_nascimento.strftime('%Y-%m-%d') if aluno and aluno.data_nascimento else '' }}">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="nome_mae" class="form-label text-muted small text-uppercase fw-bold">Nome da
+                            Mãe</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-transparent border-end-0"><i
+                                    class="bi bi-person-heart"></i></span>
+                            <input type="text" class="form-control border-start-0 ps-0" id="nome_mae" name="nome_mae"
+                                placeholder="Nome da mãe da criança"
+                                value="{{ aluno.nome_mae or '' if aluno else '' }}">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="nome_pai" class="form-label text-muted small text-uppercase fw-bold">Nome do
+                            Pai</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-transparent border-end-0"><i
+                                    class="bi bi-person"></i></span>
+                            <input type="text" class="form-control border-start-0 ps-0" id="nome_pai" name="nome_pai"
+                                placeholder="Nome do pai da criança"
+                                value="{{ aluno.nome_pai or '' if aluno else '' }}">
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="caixa_id" class="form-label text-muted small text-uppercase fw-bold">Caixa <span
+                                style="color: red;">*</span></label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-transparent border-end-0"><i
+                                    class="bi bi-archive"></i></span>
+                            <select class="form-select border-start-0 ps-0" id="caixa_id" name="caixa_id" required>
+                                <option value="" disabled {% if not aluno %}selected{% endif %}>Selecione uma caixa...
+                                </option>
+                                {% for caixa in caixas %}
+                                <option value="{{ caixa.id }}" {% if aluno and aluno.caixa_id==caixa.id %}selected{%
+                                    endif %}>{{ caixa.nome_formatado }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div id="sugestao-msg" class="form-text mt-2 fw-medium"></div>
+                    </div>
+
+                    <div class="mb-4">
+                        <div class="form-check form-switch mb-3">
+                            <input class="form-check-input" type="checkbox" id="ativo" name="ativo" {% if aluno and
+                                aluno.ativo %}checked{% endif %}>
+                            <label class="form-check-label" for="ativo">Aluno Ativo</label>
+                            <div class="form-text text-muted">Por padrão, alunos são cadastrados como inativos.</div>
+                        </div>
+
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="homonimo_verificado"
+                                name="homonimo_verificado" {% if aluno and aluno.homonimo_verificado %}checked{% endif
+                                %}>
+                            <label class="form-check-label fw-bold text-warning" for="homonimo_verificado">
+                                <i class="bi bi-check-circle-fill me-1"></i>Verificado (Homônimo Conferido)
+                            </label>
+                            <div class="form-text text-muted">Marque se já confirmou que não é duplicidade.</div>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('alunos') }}"
+                            class="btn btn-sm btn-outline-secondary me-md-2 px-4">Cancelar</a>
+                        <button type="button" class="btn btn-sm btn-primary px-4"
+                            onclick="validateAndSubmit(this.form)">
+                            <i class="bi bi-save me-2"></i>Salvar
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function validateAndSubmit(form) {
+        const dataInput = document.getElementById('data_nascimento');
+        if (dataInput && dataInput.value) {
+            const selectedDate = new Date(dataInput.value);
+            // Verify if date is valid
+            if (isNaN(selectedDate.getTime())) {
+                showAlert('Data de nascimento inválida.');
+                return;
+            }
+
+            const minDate = new Date('1900-01-01');
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); // reset time part
+
+            // Adjust timezone offset issue for pure date comparison if needed, 
+            // but standard JS Date comparison works fine for inputs yyyy-mm-dd parsed as UTC vs local.
+            // Actually, input date 'yyyy-mm-dd' parses to UTC usually, while new Date() is local.
+            // Let's use simple string comparison or careful parsing.
+
+            const parts = dataInput.value.split('-');
+            const inputDate = new Date(parts[0], parts[1] - 1, parts[2]); // Years, Month(0-11), Day
+
+            if (inputDate < minDate) {
+                showAlert('O ano de nascimento não pode ser menor que 1900.');
+                return;
+            }
+
+            if (inputDate > today) {
+                showAlert('A data de nascimento não pode estar no futuro.');
+                return;
+            }
+        }
+
+        // If bootstrap validation passes
+        if (form.checkValidity()) {
+            form.submit();
+        } else {
+            form.classList.add('was-validated');
+            showAlert('Por favor, preencha todos os campos obrigatórios corretamente.');
+        }
+    }
+    // Bootstrap form validation
+    (function () {
+        'use strict'
+        var forms = document.querySelectorAll('.needs-validation')
+        Array.prototype.slice.call(forms)
+            .forEach(function (form) {
+                form.addEventListener('submit', function (event) {
+                    if (!form.checkValidity()) {
+                        event.preventDefault()
+                        event.stopPropagation()
+                    }
+                    form.classList.add('was-validated')
+                }, false)
+            })
+    })()
+
+    let timeoutId;
+
+    function sugerirCaixa() {
+        const nome = document.getElementById('nome').value;
+        const msgElement = document.getElementById('sugestao-msg');
+        const selectElement = document.getElementById('caixa_id');
+
+        if (nome.length < 1) {
+            msgElement.textContent = '';
+            msgElement.className = 'form-text mt-2 fw-medium'; // Reset class
+            return;
+        }
+
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+            fetch(`{{ url_for('sugerir_caixa') }}?nome=${encodeURIComponent(nome)}`)
+                .then(response => response.json())
+                .then(data => {
+                    // Only suggest if not editing or explicitly requested?
+                    // For now, let it suggest but user can ignore.
+                    // Actually, if editing, we probably don't want to auto-change unless user is typing a new name.
+                    // But the logic here is just suggestion, it updates the select IF found.
+                    // If the user already has a box selected (edit mode), this might override it.
+                    // Let's only do it if the user manually changes the name significantly?
+                    // Or maybe check if current box is still valid?
+                    // Simpler: Keep logic as is.
+
+                    if (data.caixa_id) {
+                        // Only auto-select if field is empty or user wants?
+                        // The original code auto-selected.
+                        // But for edit mode, we might want to be careful.
+                        // Since 'sugerirCaixa' is called on input 'nome', if I edit name, it triggers.
+                        // It might change the box if I correct a typo in name.
+                        // That seems acceptable as the box depends on the Initial Letter mostly.
+                        selectElement.value = data.caixa_id;
+                        msgElement.innerHTML = `<i class="bi bi-lightbulb-fill me-1"></i> ${data.mensagem}`;
+                        msgElement.className = 'form-text mt-2 fw-bold text-success';
+
+                        // Highlight the select field briefly
+                        selectElement.classList.add('is-valid');
+                        setTimeout(() => selectElement.classList.remove('is-valid'), 2000);
+                    } else {
+                        msgElement.innerHTML = `<i class="bi bi-exclamation-circle-fill me-1"></i> ${data.mensagem || 'Nenhuma sugestão disponível.'}`;
+                        msgElement.className = 'form-text mt-2 fw-bold text-warning';
+                    }
+                })
+                .catch(err => {
+                    console.error('Erro ao buscar sugestão:', err);
+                    msgElement.textContent = 'Erro ao buscar sugestão de caixa.';
+                    msgElement.className = 'form-text mt-2 text-danger';
+                });
+        }, 500); // 500ms debounce
+    }
+
+    // Set max date to today for birth date field
+    document.addEventListener('DOMContentLoaded', function () {
+        const today = new Date().toISOString().split('T')[0];
+        const dateInput = document.getElementById('data_nascimento');
+        if (dateInput) {
+            dateInput.setAttribute('max', today);
+        }
+    });
+</script>
+{% endblock %}

@@ -34,7 +34,8 @@ with app.app_context():
             username='admin',
             email='admin@siscap.local',
             cpf=formatted_cpf,
-            active=True
+            active=True,
+            role='Administrador'
         )
         user.set_password('admin123')
         db.session.add(user)

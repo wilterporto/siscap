@@ -48,7 +48,7 @@
                                     class="img-thumbnail d-block mt-1" style="width: 32px; height: 32px;">
                             </div>
                             {% endif %}
-                            <div class="form-text">Recomendado: 32x32px ou 16x16px (ICO/PNG).</div>
+                            <div class="form-text">Tamanho máximo permitido: 512x512px (ICO/PNG/JPG).</div>
                         </div>
 
                         <hr class="my-4">
@@ -106,4 +106,27 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.getElementById('favicon').addEventListener('change', function () {
+        var file = this.files[0];
+        if (file) {
+            var img = new Image();
+            img.onload = function () {
+                if (this.width > 512 || this.height > 512) {
+                    showAlert('Erro: O favicon não pode ultrapassar 512x512 pixels.');
+                    document.getElementById('favicon').value = '';
+                }
+                URL.revokeObjectURL(this.src); // Limpa memória
+            };
+            img.onerror = function () {
+                showAlert('Erro ao ler o arquivo selecionado. Tem certeza de que é uma imagem válida?');
+                document.getElementById('favicon').value = '';
+            };
+            img.src = URL.createObjectURL(file);
+        }
+    });
+</script>
 {% endblock %}

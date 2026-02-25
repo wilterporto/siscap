@@ -112,6 +112,21 @@ with app.app_context():
             conn.commit()
     except Exception:
         pass # Column likely exists
+
+    try:
+        with db.engine.connect() as conn:
+            conn.execute(text("ALTER TABLE user ADD COLUMN role VARCHAR(20) DEFAULT 'Usuário'"))
+            conn.commit()
+    except Exception:
+        pass # Column likely exists
+        
+    try:
+        admin_user = User.query.filter_by(username='admin').first()
+        if admin_user and admin_user.role != 'Administrador':
+            admin_user.role = 'Administrador'
+            db.session.commit()
+    except Exception:
+        pass
     
     # Nota: A coluna data_nascimento foi alterada para nullable=True no modelo.
     # SQLite não suporta ALTER COLUMN para modificar constraints diretamente.
@@ -192,6 +207,13 @@ def check_session_timeout():
         # Atualizar timestamp da última atividade
         session['last_activity'] = datetime.now().isoformat()
 
+@app.before_request
+def check_admin_access():
+    admin_routes = ['/usuarios', '/configuracoes', '/importacoes', '/auditoria', '/usuarios/gerenciar']
+    if request.path in admin_routes or request.path.startswith('/usuarios/'):
+        if current_user.is_authenticated and current_user.role != 'Administrador':
+            flash('Acesso negado. Apenas administradores podem acessar esta área.', 'error')
+            return redirect(url_for('dashboard'))
 
 @app.cli.command("create-admin")
 def create_admin():
@@ -216,7 +238,8 @@ def create_admin():
         user = User(
             username=username,
             cpf=formatted_cpf,
-            email=email
+            email=email,
+            role='Administrador'
         )
         user.set_password(password)
         db.session.add(user)
@@ -349,6 +372,11 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
+@app.route('/sobre')
+@login_required
+def sobre():
+    return render_template('sobre.html')
+
 # Helper function for auditing
 def log_audit(action, target_type, target_id=None, details=None):
     try:
@@ -398,10 +426,12 @@ def gerenciar_usuario():
             flash('E-mail já cadastrado!', 'error')
         else:
             active = True if request.form.get('active') == 'on' else False
+            role = request.form.get('role', 'Usuário')
             user = User(
                 username=username,
                 cpf=formatted_cpf,
                 email=email,
+                role=role,
                 active=active
             )
             user.set_password(password)
@@ -429,9 +459,26 @@ def gerenciar_usuario():
                     return redirect(url_for('listar_usuarios'))
                 user.email = email
 
-            # Update Active Status
+            # Update Active Status and Role
             if user.id != current_user.id:
-                user.active = True if request.form.get('active') == 'on' else False
+                active_req = True if request.form.get('active') == 'on' else False
+                new_role = request.form.get('role')
+                
+                # Check 1: admin profile can't be changed
+                if user.username == 'admin':
+                    new_role = 'Administrador'
+
+                # Check 2: Decreasing Administrador active users
+                if user.role == 'Administrador' and user.active:
+                    if not active_req or (new_role and new_role != 'Administrador'):
+                        active_admins = User.query.filter_by(role='Administrador', active=True).count()
+                        if active_admins <= 1:
+                            flash('Não é possível inativar ou alterar o perfil do último administrador ativo do sistema.', 'error')
+                            return redirect(url_for('listar_usuarios'))
+
+                user.active = active_req
+                if new_role:
+                    user.role = new_role
             
             new_password = request.form.get('password')
             if new_password:
@@ -447,6 +494,12 @@ def gerenciar_usuario():
             if user.id == current_user.id:
                  flash('Você não pode inativar a si mesmo!', 'error')
             else:
+                if user.role == 'Administrador' and user.active:
+                    active_admins = User.query.filter_by(role='Administrador', active=True).count()
+                    if active_admins <= 1:
+                        flash('Não é possível inativar o último administrador ativo do sistema.', 'error')
+                        return redirect(url_for('listar_usuarios'))
+                        
                 user.active = not user.active
                 db.session.add(user)
                 log_audit('UPDATE', 'User', target_id=user.id, details=f'Status changed to {user.active}')
@@ -459,6 +512,16 @@ def gerenciar_usuario():
             if user.id == current_user.id:
                  flash('Você não pode excluir a si mesmo!', 'error')
             else:
+                if user.username == 'admin':
+                    flash('O usuário admin não pode ser excluído.', 'error')
+                    return redirect(url_for('listar_usuarios'))
+                
+                if user.role == 'Administrador' and user.active:
+                    active_admins = User.query.filter_by(role='Administrador', active=True).count()
+                    if active_admins <= 1:
+                        flash('Não é possível excluir o último administrador ativo do sistema.', 'error')
+                        return redirect(url_for('listar_usuarios'))
+
                 # Check constraints
                 has_students = Aluno.query.filter_by(created_by_id=user.id).first()
                 has_audits = Audit.query.filter_by(user_id=user.id).first()
@@ -516,6 +579,30 @@ def configuracoes():
                     
                 filepath = os.path.join(upload_folder, filename)
                 file.save(filepath)
+                
+                try:
+                    from PIL import Image
+                    img = Image.open(filepath)
+                    
+                    # Redimensiona mantendo a proporção (máximo 512x512)
+                    img.thumbnail((512, 512), Image.Resampling.LANCZOS)
+                    
+                    ext = filename.lower()
+                    if ext.endswith('.png'):
+                        img.save(filepath, format="PNG", optimize=True)
+                    elif ext.endswith(('.jpg', '.jpeg')):
+                        if img.mode in ("RGBA", "P"):
+                            img = img.convert("RGB")
+                        img.save(filepath, format="JPEG", optimize=True, quality=85)
+                    elif ext.endswith('.ico'):
+                        img.save(filepath, format="ICO")
+                    else:
+                        img.save(filepath, optimize=True)
+                except ImportError:
+                    print("Atenção: A biblioteca Pillow não está instalada. A compressão de imagem foi pulada.")
+                except Exception as e:
+                    print(f"Erro ao comprimir favicon: {str(e)}")
+                    
                 config.favicon_path = f'uploads/{filename}'
         
         db.session.commit()

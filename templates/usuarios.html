@@ -21,6 +21,7 @@
                     <thead class="bg-light">
                         <tr>
                             <th class="ps-4 py-3">Usuário</th>
+                            <th class="py-3">Perfil</th>
                             <th class="py-3">Status</th>
                             <th class="text-end pe-4 py-3">Ações</th>
                         </tr>
@@ -33,6 +34,9 @@
                                 {{ user.username }}
                             </td>
                             <td>
+                                {{ user.role }}
+                            </td>
+                            <td>
                                 <span class="badge rounded-pill {{ 'bg-success' if user.active else 'bg-secondary' }}">
                                     {{ 'Ativo' if user.active else 'Inativo' }}
                                 </span>
@@ -42,8 +46,8 @@
                                     data-bs-target="#userModal" data-userid="{{ user.id }}"
                                     data-username="{{ user.username }}" data-email="{{ user.email or '' }}"
                                     data-cpf="{{ user.cpf or '' }}"
-                                    data-active="{{ 'true' if user.active else 'false' }}" onclick="openEditModal(this)"
-                                    title="Editar">
+                                    data-active="{{ 'true' if user.active else 'false' }}" data-role="{{ user.role }}"
+                                    onclick="openEditModal(this)" title="Editar">
                                     <i class="bi bi-pencil-square"></i>
                                 </button>
 
@@ -81,21 +85,31 @@
                         <input type="hidden" name="user_id" id="modalUserId">
 
                         <div class="mb-3" id="cpfGroup">
-                            <label for="cpf" class="form-label">CPF</label>
+                            <label for="cpf" class="form-label">CPF <span class="text-danger">*</span></label>
                             <input type="text" class="form-control bg-dark text-light border-secondary" id="cpf"
                                 name="cpf" placeholder="000.000.000-00" maxlength="14" oninput="maskCPF(this)">
                         </div>
 
                         <div class="mb-3" id="usernameGroup">
-                            <label for="username" class="form-label">Nome de Usuário (Login)</label>
+                            <label for="username" class="form-label">Nome de Usuário (Login) <span
+                                    class="text-danger">*</span></label>
                             <input type="text" class="form-control bg-dark text-light border-secondary" id="username"
                                 name="username">
                         </div>
 
                         <div class="mb-3" id="emailGroup">
-                            <label for="email" class="form-label">E-mail</label>
+                            <label for="email" class="form-label">E-mail <span class="text-danger">*</span></label>
                             <input type="email" class="form-control bg-dark text-light border-secondary" id="email"
                                 name="email">
+                        </div>
+
+                        <div class="mb-3" id="roleGroup">
+                            <label for="role" class="form-label">Perfil <span class="text-danger">*</span></label>
+                            <select class="form-select bg-dark text-light border-secondary" id="role" name="role"
+                                required>
+                                <option value="Usuário">Usuário</option>
+                                <option value="Administrador">Administrador</option>
+                            </select>
                         </div>
 
                         <div class="mb-3 form-check form-switch" id="activeGroup">
@@ -106,7 +120,8 @@
                         </div>
 
                         <div class="mb-3" id="passwordGroup">
-                            <label for="password" class="form-label" id="passwordLabel">Senha</label>
+                            <label for="password" class="form-label" id="passwordLabel">Senha <span
+                                    class="text-danger">*</span></label>
                             <input type="password" class="form-control bg-dark text-light border-secondary"
                                 id="password" name="password">
                             <div class="form-text text-muted" id="passwordHelp"></div>
@@ -147,6 +162,7 @@
             document.getElementById('cpfGroup').style.display = 'block';
             document.getElementById('usernameGroup').style.display = 'block';
             document.getElementById('emailGroup').style.display = 'block';
+            document.getElementById('roleGroup').style.display = 'block';
             document.getElementById('activeGroup').style.display = 'block';
 
             const cpfInput = document.getElementById('cpf');
@@ -164,13 +180,16 @@
             emailInput.readOnly = false;
             emailInput.required = true;
 
+            const roleInput = document.getElementById('role');
+            roleInput.value = 'Usuário';
+
             const activeInput = document.getElementById('active');
             activeInput.checked = true;
             activeInput.disabled = false;
 
             const passwordInput = document.getElementById('password');
             passwordInput.required = true;
-            document.getElementById('passwordLabel').textContent = 'Senha';
+            document.getElementById('passwordLabel').innerHTML = 'Senha <span class="text-danger">*</span>';
             document.getElementById('passwordHelp').textContent = '';
         }
 
@@ -180,6 +199,7 @@
             const email = btn.dataset.email;
             const cpf = btn.dataset.cpf;
             const active = btn.dataset.active === 'true';
+            const role = btn.dataset.role;
 
             const modalTitle = document.getElementById('userModalLabel');
             const modalAction = document.getElementById('modalAction');
@@ -193,6 +213,7 @@
             document.getElementById('cpfGroup').style.display = 'block';
             document.getElementById('usernameGroup').style.display = 'block';
             document.getElementById('emailGroup').style.display = 'block';
+            document.getElementById('roleGroup').style.display = 'block';
             document.getElementById('activeGroup').style.display = 'block';
 
             const cpfInput = document.getElementById('cpf');
@@ -210,13 +231,18 @@
             emailInput.readOnly = false;
             emailInput.required = true;
 
+            const roleInput = document.getElementById('role');
+            roleInput.value = role;
+
             const activeInput = document.getElementById('active');
             activeInput.checked = active;
 
             if (id == currentUserId) {
                 activeInput.disabled = true;
+                roleInput.disabled = true;
             } else {
                 activeInput.disabled = false;
+                roleInput.disabled = false;
             }
 
             const passwordInput = document.getElementById('password');

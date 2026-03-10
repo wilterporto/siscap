@@ -34,6 +34,7 @@ class SystemConfig(db.Model):
     smtp_sender_email = db.Column(db.String(120), nullable=True)
     login_image = db.Column(db.String(200), nullable=True) # Path relative to static folder (e.g. 'img/login_bg.jpg')
     favicon_path = db.Column(db.String(200), nullable=True) # Path relative to static folder
+    permitir_alunos_acima_capacidade = db.Column(db.Boolean, default=False)
 
 class Audit(db.Model):
     id = db.Column(db.Integer, primary_key=True)

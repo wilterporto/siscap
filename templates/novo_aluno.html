@@ -15,7 +15,8 @@
             </div>
             <div class="card-body p-4">
                 <form action="{{ url_for('edit_aluno', id=aluno.id) if aluno else url_for('novo_aluno') }}"
-                    method="POST" class="needs-validation" novalidate>
+                    method="POST" class="needs-validation"
+                    data-original-caixa-id="{{ aluno.caixa_id if aluno else '' }}" novalidate>
                     <div class="mb-3">
                         <label for="nome" class="form-label text-muted small text-uppercase fw-bold">Nome
                             Completo <span style="color: red;">*</span></label>
@@ -23,7 +24,7 @@
                             <span class="input-group-text bg-transparent border-end-0"><i
                                     class="bi bi-person"></i></span>
                             <input type="text" class="form-control border-start-0 ps-0" id="nome" name="nome" required
-                                oninput="sugerirCaixa()" placeholder="Nome do aluno"
+                                oninput="handleNomeInput()" placeholder="Nome do aluno"
                                 value="{{ aluno.nome if aluno else '' }}">
                             <div class="invalid-feedback">Por favor, informe o nome.</div>
                         </div>
@@ -75,8 +76,9 @@
                                 <option value="" disabled {% if not aluno %}selected{% endif %}>Selecione uma caixa...
                                 </option>
                                 {% for caixa in caixas %}
-                                <option value="{{ caixa.id }}" {% if aluno and aluno.caixa_id==caixa.id %}selected{%
-                                    endif %}>{{ caixa.nome_formatado }}</option>
+                                <option value="{{ caixa.id }}" data-count="{{ caixa.count }}"
+                                    data-permitir="{{ 'true' if permitir_acima else 'false' }}" {% if aluno and
+                                    aluno.caixa_id==caixa.id %}selected{% endif %}>{{ caixa.nome_formatado }}</option>
                                 {% endfor %}
                             </select>
                         </div>
@@ -111,6 +113,30 @@
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Confirm Capacity -->
+<div class="modal fade" id="capacityConfirmModal" tabindex="-1" aria-labelledby="capacityConfirmModalLabel"
+    aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-warning text-dark border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold" id="capacityConfirmModalLabel">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Atenção: Capacidade Excedida
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body pt-3 pb-4">
+                <p id="capacityConfirmMessage" class="mb-0 fw-medium"></p>
+            </div>
+            <div class="modal-footer bg-light border-top-0">
+                <button type="button" class="btn btn-sm btn-outline-secondary px-3"
+                    data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-sm btn-primary px-4" id="capacityConfirmBtn">Confirmar
+                    Inclusão</button>
             </div>
         </div>
     </div>
@@ -152,6 +178,39 @@
 
         // If bootstrap validation passes
         if (form.checkValidity()) {
+            const selectElement = document.getElementById('caixa_id');
+            const originalCaixaId = form.getAttribute('data-original-caixa-id');
+            if (selectElement && selectElement.selectedIndex > 0) {
+                const currentCaixaId = selectElement.value;
+                if (currentCaixaId !== originalCaixaId) {
+                    const option = selectElement.options[selectElement.selectedIndex];
+                    const capacityStr = option.getAttribute('data-count');
+                    const permitirStr = option.getAttribute('data-permitir');
+
+                    if (capacityStr && parseInt(capacityStr) >= 100) {
+                        if (permitirStr === 'true') {
+                            document.getElementById('capacityConfirmMessage').textContent = `A caixa ${option.text} já atingiu ou ultrapassou a capacidade (100 alunos). Deseja realmente adicionar este aluno mesmo assim?`;
+                            var capacityModal = new bootstrap.Modal(document.getElementById('capacityConfirmModal'));
+
+                            // Remove previous listeners from the confirm button to avoid multiple submissions
+                            const confirmBtn = document.getElementById('capacityConfirmBtn');
+                            const newConfirmBtn = confirmBtn.cloneNode(true);
+                            confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+
+                            newConfirmBtn.addEventListener('click', function () {
+                                capacityModal.hide();
+                                form.submit();
+                            });
+
+                            capacityModal.show();
+                            return;
+                        } else {
+                            showAlert(`A caixa ${option.text} já está cheia (100 alunos) e o sistema está configurado para não permitir mais inclusões.`);
+                            return;
+                        }
+                    }
+                }
+            }
             form.submit();
         } else {
             form.classList.add('was-validated');
@@ -175,9 +234,69 @@
     })()
 
     let timeoutId;
+    let originalCaixas = [];
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const selectElement = document.getElementById('caixa_id');
+        const options = selectElement.querySelectorAll('option:not([disabled])');
+        options.forEach(opt => {
+            originalCaixas.push({
+                value: opt.value,
+                text: opt.text,
+                count: opt.getAttribute('data-count'),
+                permitir: opt.getAttribute('data-permitir'),
+                selected: opt.selected
+            });
+        });
+
+        filtrarCaixas();
+    });
+
+    function filtrarCaixas() {
+        const nomeInput = document.getElementById('nome').value.trim();
+        const selectElement = document.getElementById('caixa_id');
+        const primeiraLetra = nomeInput.length > 0 ? nomeInput.charAt(0).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase() : '';
+
+        const currentVal = selectElement.value;
+        const msgElement = document.getElementById('sugestao-msg');
+
+        // Remove all options except the first placeholder/disabled one
+        while (selectElement.options.length > 1) {
+            selectElement.remove(1);
+        }
+
+        let foundCurrent = false;
+
+        if (primeiraLetra !== '') {
+            originalCaixas.forEach(caixa => {
+                const caixaLetra = caixa.text.charAt(0).toUpperCase();
+                if (caixaLetra === primeiraLetra) {
+                    const opt = new Option(caixa.text, caixa.value);
+                    opt.setAttribute('data-count', caixa.count);
+                    opt.setAttribute('data-permitir', caixa.permitir);
+                    if (caixa.value === currentVal) {
+                        opt.selected = true;
+                        foundCurrent = true;
+                    }
+                    selectElement.add(opt);
+                }
+            });
+        }
+
+        // If current selection is no longer valid or no text, clear it
+        if (primeiraLetra !== '' && currentVal && !foundCurrent) {
+            selectElement.value = '';
+            msgElement.textContent = '';
+        }
+    }
+
+    function handleNomeInput() {
+        filtrarCaixas();
+        sugerirCaixa();
+    }
 
     function sugerirCaixa() {
-        const nome = document.getElementById('nome').value;
+        const nome = document.getElementById('nome').value.trim();
         const msgElement = document.getElementById('sugestao-msg');
         const selectElement = document.getElementById('caixa_id');
 

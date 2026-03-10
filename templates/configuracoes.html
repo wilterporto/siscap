@@ -51,6 +51,22 @@
                             <div class="form-text">Tamanho máximo permitido: 512x512px (ICO/PNG/JPG).</div>
                         </div>
 
+                        <div class="mb-3">
+                            <label class="form-label fw-bold small text-muted text-uppercase">
+                                Limites do Sistema
+                            </label>
+                            <div class="form-check form-switch mt-2">
+                                <input class="form-check-input" type="checkbox" id="permitir_alunos_acima_capacidade"
+                                    name="permitir_alunos_acima_capacidade" {% if
+                                    config.permitir_alunos_acima_capacidade %}checked{% endif %}>
+                                <label class="form-check-label" for="permitir_alunos_acima_capacidade">
+                                    Permitir inclusão de alunos além da capacidade da caixa
+                                </label>
+                                <div class="form-text">Quando na posição "Sim", permite adicionar alunos mesmo quando a
+                                    caixa atinge 100 alunos, exigindo confirmação.</div>
+                            </div>
+                        </div>
+
                         <hr class="my-4">
 
                         <h5 class="card-title fw-bold mb-3 text-primary">

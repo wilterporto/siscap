@@ -77,7 +77,7 @@ def create_app(config_class=DevelopmentConfig):
     
     login_manager = LoginManager()
     login_manager.login_view = 'login'
-    login_manager.login_message = 'Por favor, faça login para acessar esta página.'
+    login_manager.login_message = ''
     login_manager.login_message_category = 'info'
     login_manager.init_app(app)
 
@@ -116,6 +116,13 @@ with app.app_context():
     try:
         with db.engine.connect() as conn:
             conn.execute(text("ALTER TABLE user ADD COLUMN role VARCHAR(20) DEFAULT 'Usuário'"))
+            conn.commit()
+    except Exception:
+        pass # Column likely exists
+        
+    try:
+        with db.engine.connect() as conn:
+            conn.execute(text("ALTER TABLE system_config ADD COLUMN permitir_alunos_acima_capacidade BOOLEAN DEFAULT 0"))
             conn.commit()
     except Exception:
         pass # Column likely exists
@@ -552,6 +559,7 @@ def configuracoes():
         config.smtp_password = request.form.get('smtp_password') # In real app, encrypt this
         config.smtp_use_tls = True if request.form.get('smtp_use_tls') == 'on' else False
         config.smtp_sender_email = request.form.get('smtp_sender_email')
+        config.permitir_alunos_acima_capacidade = True if request.form.get('permitir_alunos_acima_capacidade') == 'on' else False
         
         # Handle Image Upload
         if 'login_image' in request.files:
@@ -1010,10 +1018,12 @@ def novo_aluno():
             flash('Caixa inválida selecionada.', 'error')
             return redirect(url_for('novo_aluno'))
             
+        system_config = SystemConfig.query.first()
+        permitir_acima = system_config.permitir_alunos_acima_capacidade if system_config else False
         current_count = Aluno.query.filter_by(caixa_id=caixa.id).count()
         
-        if current_count >= 100:
-            flash(f'A caixa {caixa.nome_formatado} já está cheia (100 alunos).', 'error')
+        if current_count >= 100 and not permitir_acima:
+            flash(f'A caixa {caixa.nome_formatado} já está cheia (100 alunos). Para adicionar alunos além da capacidade, altere a configuração do sistema.', 'error')
         else:
             nov = Aluno(
                 nome=nome, 
@@ -1031,9 +1041,13 @@ def novo_aluno():
             flash('Aluno cadastrado com sucesso!', 'success')
             return redirect(url_for('alunos'))
             
-    caixas = Caixa.query.order_by(Caixa.letra, Caixa.numero).all()
+    system_config = SystemConfig.query.first()
+    permitir_acima = system_config.permitir_alunos_acima_capacidade if system_config else False
     
-    return render_template('novo_aluno.html', caixas=caixas)
+    caixas_records = db.session.query(Caixa, func.count(Aluno.id)).outerjoin(Aluno, Aluno.caixa_id == Caixa.id).group_by(Caixa.id).order_by(Caixa.letra, Caixa.numero).all()
+    caixas_info = [{'id': c.id, 'nome_formatado': c.nome_formatado, 'count': count} for c, count in caixas_records]
+    
+    return render_template('novo_aluno.html', caixas=caixas_info, permitir_acima=permitir_acima)
 
 @app.route('/alunos/editar/<int:id>', methods=['GET', 'POST'])
 @login_required
@@ -1080,9 +1094,11 @@ def edit_aluno(id):
         else:
             # Check capacity only if changing boxes
             if int(caixa_id) != aluno.caixa_id:
+                system_config = SystemConfig.query.first()
+                permitir_acima = system_config.permitir_alunos_acima_capacidade if system_config else False
                 current_count = Aluno.query.filter_by(caixa_id=caixa.id).count()
-                if current_count >= 100:
-                    flash(f'A caixa {caixa.nome_formatado} já está cheia (100 alunos).', 'error')
+                if current_count >= 100 and not permitir_acima:
+                    flash(f'A caixa {caixa.nome_formatado} já está cheia (100 alunos). Para adicionar alunos além da capacidade, altere a configuração do sistema.', 'error')
                     return redirect(url_for('edit_aluno', id=id))
 
             aluno.nome = nome
@@ -1098,8 +1114,11 @@ def edit_aluno(id):
             flash('Aluno atualizado com sucesso!', 'success')
             return redirect(url_for('alunos'))
             
-    caixas = Caixa.query.order_by(Caixa.letra, Caixa.numero).all()
-    return render_template('novo_aluno.html', caixas=caixas, aluno=aluno)
+    system_config = SystemConfig.query.first()
+    permitir_acima = system_config.permitir_alunos_acima_capacidade if system_config else False
+    caixas_records = db.session.query(Caixa, func.count(Aluno.id)).outerjoin(Aluno, Aluno.caixa_id == Caixa.id).group_by(Caixa.id).order_by(Caixa.letra, Caixa.numero).all()
+    caixas_info = [{'id': c.id, 'nome_formatado': c.nome_formatado, 'count': count} for c, count in caixas_records]
+    return render_template('novo_aluno.html', caixas=caixas_info, aluno=aluno, permitir_acima=permitir_acima)
 
 @app.route('/alunos/excluir/<int:id>', methods=['POST'])
 @login_required

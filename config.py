@@ -10,27 +10,23 @@ class Config:
     # Tratamento da URI do banco de dados para o Render (PostgreSQL)
     db_url = os.environ.get('DATABASE_URL')
     if db_url:
-        if db_url.startswith("postgres://"):
-            db_url = db_url.replace("postgres://", "postgresql://", 1)
+        # Tratar caracteres especiais na senha da URL de forma ultra-robusta
+        import re
+        from urllib.parse import quote, unquote
         
-        # Tratar caracteres especiais na senha da URL caso necessário
-        from urllib.parse import urlparse, urlunparse, quote, unquote
-        try:
-            p = urlparse(db_url)
-            if p.password:
-                # Decodifica caso já esteja codificado e codifica novamente para garantir padrão
-                new_password = quote(unquote(p.password))
-                # Reconstrói a parte netloc com a senha segura
-                user_info = p.username
-                if new_password:
-                    user_info = f"{p.username}:{new_password}"
-                new_netloc = f"{user_info}@{p.hostname}"
-                if p.port:
-                    new_netloc += f":{p.port}"
-                
-                db_url = urlunparse(p._replace(netloc=new_netloc))
-        except Exception:
-            pass # Mantém original em caso de erro no parse
+        # Regex para capturar: protocolo, usuário, senha (até o último @) e o resto do host
+        pattern = r"^(?P<proto>postgresql://|postgres://)(?P<user>[^:]+):(?P<pass>.+)@(?P<rest>.+)$"
+        match = re.match(pattern, db_url)
+        
+        if match:
+            # Pegamos o que está entre o primeiro ':' e o último '@' como a senha
+            raw_pass = match.group('pass')
+            # Codificamos a senha (unquote primeiro para não codificar o que já está certo)
+            encoded_pass = quote(unquote(raw_pass))
+            # Remontamos a URL
+            db_url = f"postgresql://{match.group('user')}:{encoded_pass}@{match.group('rest')}"
+        elif db_url.startswith("postgres://"):
+            db_url = db_url.replace("postgres://", "postgresql://", 1)
         
     SQLALCHEMY_DATABASE_URI = db_url or \
         'sqlite:///' + os.path.join(basedir, 'instance', 'siscap.db')

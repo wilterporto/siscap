@@ -119,7 +119,7 @@ def create_app(config_class=DevelopmentConfig):
 
     @login_manager.user_loader
     def load_user(user_id):
-        return User.query.get(int(user_id))
+        return db.session.get(User, int(user_id))
 
     return app, login_manager
 
@@ -450,7 +450,7 @@ def log_audit(action, target_type, target_id=None, details=None):
 @login_required
 def meu_perfil():
     if request.method == 'POST':
-        user = User.query.get(current_user.id)
+        user = db.session.get(User, current_user.id)
         
         username = request.form.get('username')
         full_name = request.form.get('full_name')
@@ -507,7 +507,8 @@ def meu_perfil():
 @app.route('/usuarios', methods=['GET'])
 @login_required
 def listar_usuarios():
-    users = User.query.all()
+    # SQLAlchemy 2.0 style
+    users = db.session.execute(db.select(User)).scalars().all()
     return render_template('usuarios.html', users=users)
 
 @app.route('/usuarios/gerenciar', methods=['POST'])
@@ -552,7 +553,7 @@ def gerenciar_usuario():
             flash('Usuário criado com sucesso!', 'success')
             
     elif action == 'edit':
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
         if user:
             username = request.form.get('username')
             email = request.form.get('email')
@@ -600,7 +601,7 @@ def gerenciar_usuario():
             flash('Usuário atualizado com sucesso!', 'success')
             
     elif action == 'toggle_status':
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
         if user:
             if user.id == current_user.id:
                  flash('Você não pode inativar a si mesmo!', 'error')
@@ -618,7 +619,7 @@ def gerenciar_usuario():
                 flash(f'Usuário {"ativado" if user.active else "inativado"} com sucesso!', 'success')
 
     elif action == 'delete':
-        user = User.query.get(user_id)
+        user = db.session.get(User, user_id)
         if user:
             if user.id == current_user.id:
                  flash('Você não pode excluir a si mesmo!', 'error')
@@ -844,7 +845,7 @@ def caixas():
 @app.route('/caixas/editar/<int:id>', methods=['POST'])
 @login_required
 def edit_caixa(id):
-    caixa = Caixa.query.get_or_404(id)
+    caixa = db.get_or_404(Caixa, id)
     letra = request.form.get('letra').upper()
     numero = request.form.get('numero')
     
@@ -1179,7 +1180,7 @@ def novo_aluno():
 @app.route('/alunos/editar/<int:id>', methods=['GET', 'POST'])
 @login_required
 def edit_aluno(id):
-    aluno = Aluno.query.get_or_404(id)
+    aluno = db.get_or_404(Aluno, id)
     
     
     if request.method == 'POST':
@@ -1248,7 +1249,7 @@ def edit_aluno(id):
 @app.route('/alunos/excluir/<int:id>', methods=['POST'])
 @login_required
 def delete_aluno(id):
-    aluno = Aluno.query.get_or_404(id)
+    aluno = db.get_or_404(Aluno, id)
     nome = aluno.nome
     db.session.delete(aluno)
     log_audit('DELETE', 'Aluno', target_id=id, details=f'Nome: {nome}')
@@ -1296,7 +1297,7 @@ def homonimos():
 @app.route('/homonimos/verificar/<int:id>')
 @login_required
 def verificar_homonimo(id):
-    aluno = Aluno.query.get_or_404(id)
+    aluno = db.get_or_404(Aluno, id)
     aluno.homonimo_verificado = not aluno.homonimo_verificado
     db.session.commit()
     return redirect(url_for('homonimos'))

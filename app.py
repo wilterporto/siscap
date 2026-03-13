@@ -163,13 +163,39 @@ with app.app_context():
     except Exception:
         pass # Column likely exists
         
+    # Semente inicial do banco de dados (Cria admin se o banco estiver vazio)
     try:
-        admin_user = User.query.filter_by(username='admin').first()
-        if admin_user and admin_user.role != 'Administrador':
-            admin_user.role = 'Administrador'
+        # Verifica se existe pelo menos um usuário
+        if not db.session.execute(db.select(User)).first():
+            admin_username = os.environ.get('ADMIN_USERNAME', 'admin')
+            admin_password = os.environ.get('ADMIN_PASSWORD', 'admin123')
+            admin_email = os.environ.get('ADMIN_EMAIL', 'admin@example.com')
+            admin_cpf = os.environ.get('ADMIN_CPF', '000.000.000-00')
+            
+            new_admin = User(
+                username=admin_username,
+                email=admin_email,
+                cpf=admin_cpf,
+                full_name='Administrador do Sistema',
+                role='Administrador',
+                active=True
+            )
+            new_admin.set_password(admin_password)
+            db.session.add(new_admin)
+            
+            # Garante que as configurações do sistema existam
+            if not db.session.execute(db.select(SystemConfig)).first():
+                db.session.add(SystemConfig())
+            
             db.session.commit()
-    except Exception:
-        pass
+        else:
+            # Garante que o usuário com username 'admin' seja administrador caso já exista
+            admin_user = db.session.execute(db.select(User).filter_by(username='admin')).scalar_one_or_none()
+            if admin_user and admin_user.role != 'Administrador':
+                admin_user.role = 'Administrador'
+                db.session.commit()
+    except Exception as e:
+        print(f"Erro ao inicializar banco de dados: {e}")
     
     # Nota: A coluna data_nascimento foi alterada para nullable=True no modelo.
     # SQLite não suporta ALTER COLUMN para modificar constraints diretamente.

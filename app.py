@@ -400,6 +400,64 @@ def log_audit(action, target_type, target_id=None, details=None):
     except Exception as e:
         print(f"Error logging audit: {e}")
 
+@app.route('/meu_perfil', methods=['GET', 'POST'])
+@login_required
+def meu_perfil():
+    if request.method == 'POST':
+        user = User.query.get(current_user.id)
+        
+        username = request.form.get('username')
+        full_name = request.form.get('full_name')
+        email = request.form.get('email')
+        cpf = request.form.get('cpf')
+        
+        senha_atual = request.form.get('senha_atual')
+        nova_senha = request.form.get('nova_senha')
+        confirmar_senha = request.form.get('confirmar_senha')
+        
+        if senha_atual or nova_senha or confirmar_senha:
+            if not user.check_password(senha_atual):
+                flash('Senha atual incorreta.', 'error')
+                return redirect(url_for('meu_perfil'))
+            if nova_senha != confirmar_senha:
+                flash('As novas senhas não conferem.', 'error')
+                return redirect(url_for('meu_perfil'))
+            if not nova_senha:
+                flash('A nova senha não pode ser vazia.', 'error')
+                return redirect(url_for('meu_perfil'))
+            user.set_password(nova_senha)
+
+        if username and username != user.username:
+            if User.query.filter_by(username=username).first():
+                flash('Nome de usuário já existe!', 'error')
+                return redirect(url_for('meu_perfil'))
+            user.username = username
+            
+        if email and email != user.email:
+            if User.query.filter_by(email=email).first():
+                flash('E-mail já cadastrado!', 'error')
+                return redirect(url_for('meu_perfil'))
+            user.email = email
+            
+        if cpf and cpf != user.cpf:
+            if not validate_cpf(cpf):
+                flash('CPF inválido!', 'error')
+                return redirect(url_for('meu_perfil'))
+            formatted_cpf = format_cpf(cpf)
+            if User.query.filter_by(cpf=formatted_cpf).first():
+                flash('CPF já cadastrado!', 'error')
+                return redirect(url_for('meu_perfil'))
+            user.cpf = formatted_cpf
+            
+        user.full_name = full_name
+        
+        log_audit('UPDATE', 'Perfil', target_id=user.id, details=f'Perfil atualizado pelo próprio usuário.')
+        db.session.commit()
+        flash('Perfil atualizado com sucesso!', 'success')
+        return redirect(url_for('meu_perfil'))
+        
+    return render_template('meu_perfil.html')
+
 @app.route('/usuarios', methods=['GET'])
 @login_required
 def listar_usuarios():
@@ -686,6 +744,8 @@ def dashboard():
         .having(func.count(Aluno.id) > 100)\
         .count()
 
+    total_ativos = Aluno.query.filter_by(ativo=True).count()
+
     return render_template('dashboard.html', 
                            labels=labels, values=values,
                            total_homonimos=total_homonimos,
@@ -693,7 +753,8 @@ def dashboard():
                            h_labels=h_labels, h_values=h_values,
                            total_irmaos=total_irmaos,
                            total_caixas=total_caixas,
-                           caixas_acima_capacidade=caixas_acima_capacidade)
+                           caixas_acima_capacidade=caixas_acima_capacidade,
+                           total_ativos=total_ativos)
 
 @app.route('/caixas', methods=['GET', 'POST'])
 @login_required
@@ -971,6 +1032,7 @@ def alunos():
     caixa_id = request.args.get('caixa_id', type=int)
     sem_mae = request.args.get('sem_mae') == 'on'
     sem_data = request.args.get('sem_data') == 'on'
+    somente_ativos = request.args.get('somente_ativos') == 'on'
     
     query = Aluno.query
     if search:
@@ -985,6 +1047,9 @@ def alunos():
     if sem_data:
         query = query.filter(Aluno.data_nascimento == None)
         
+    if somente_ativos:
+        query = query.filter(Aluno.ativo == True)
+        
     pagination = query.order_by(Aluno.nome).paginate(page=page, per_page=30)
     
     caixas_records = db.session.query(Caixa, func.count(Aluno.id)).outerjoin(Aluno, Aluno.caixa_id == Caixa.id).group_by(Caixa.id).order_by(Caixa.letra, Caixa.numero).all()
@@ -993,7 +1058,7 @@ def alunos():
     system_config = SystemConfig.query.first()
     permitir_acima = system_config.permitir_alunos_acima_capacidade if system_config else False
     
-    return render_template('alunos.html', pagination=pagination, search=search, caixa_id=caixa_id, sem_mae=sem_mae, sem_data=sem_data, caixas=caixas_info, permitir_acima=permitir_acima)
+    return render_template('alunos.html', pagination=pagination, search=search, caixa_id=caixa_id, sem_mae=sem_mae, sem_data=sem_data, somente_ativos=somente_ativos, caixas=caixas_info, permitir_acima=permitir_acima)
 
 @app.route('/alunos/novo', methods=['GET', 'POST'])
 @login_required

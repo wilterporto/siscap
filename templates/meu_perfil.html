@@ -1,0 +1,167 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-transparent py-3 border-bottom-0">
+                <h5 class="card-title fw-bold text-center mb-0">
+                    <i class="bi bi-person-lines-fill text-primary me-2"></i>Meu Perfil
+                </h5>
+            </div>
+            <div class="card-body p-4">
+                <form action="{{ url_for('meu_perfil') }}" method="POST" class="needs-validation" novalidate>
+                    
+                    <h6 class="text-muted text-uppercase small fw-bold mb-3 border-bottom pb-2">Dados Cadastrais</h6>
+                    
+                    <div class="mb-3">
+                        <label class="form-label text-muted small text-uppercase fw-bold">Nome de Usuário <span style="color: red;">*</span></label>
+                        <div class="input-group has-validation input-group-sm">
+                            <span class="input-group-text bg-transparent border-end-0"><i class="bi bi-person"></i></span>
+                            <input type="text" class="form-control border-start-0 ps-0" name="username" required 
+                                value="{{ current_user.username }}">
+                            <div class="invalid-feedback">Por favor, informe o nome de usuário.</div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted small text-uppercase fw-bold">Nome Completo</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-transparent border-end-0"><i class="bi bi-person-badge"></i></span>
+                            <input type="text" class="form-control border-start-0 ps-0" name="full_name" 
+                                value="{{ current_user.full_name or '' }}">
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-muted small text-uppercase fw-bold">E-mail</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-transparent border-end-0"><i class="bi bi-envelope"></i></span>
+                            <input type="email" class="form-control border-start-0 ps-0" name="email" 
+                                value="{{ current_user.email or '' }}">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label text-muted small text-uppercase fw-bold">CPF</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-transparent border-end-0"><i class="bi bi-card-text"></i></span>
+                            <input type="text" class="form-control border-start-0 ps-0" name="cpf" 
+                                value="{{ current_user.cpf or '' }}">
+                        </div>
+                        <div class="form-text text-muted">Apenas números. Se for alterado, o novo CPF será validado.</div>
+                    </div>
+
+                    <h6 class="text-muted text-uppercase small fw-bold mb-3 border-bottom pb-2 mt-4">Alterar Senha</h6>
+                    <div class="form-text text-muted mb-3">
+                        Preencha estes campos apenas se desejar alterar sua senha atual.
+                        Como medida de segurança, não use senhas simples como 123456 ou 123. Utilize sempre uma combinação de letras, números e se possível caracteres especiais.
+                    </div>
+
+                    <div class="mb-3" id="senhaAtualDiv">
+                        <label class="form-label text-muted small text-uppercase fw-bold">Senha Atual</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-transparent border-end-0"><i class="bi bi-key"></i></span>
+                            <input type="password" class="form-control border-start-0 ps-0 form-senha" id="senha_atual" name="senha_atual">
+                            <button class="btn btn-outline-secondary border-start-0" type="button" onclick="togglePassword('senha_atual', this)"><i class="bi bi-eye"></i></button>
+                            <div class="invalid-feedback">A senha atual é obrigatória se for alterar a senha.</div>
+                        </div>
+                    </div>
+
+                    <div class="mb-3" id="novaSenhaDiv">
+                        <label class="form-label text-muted small text-uppercase fw-bold">Nova Senha</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-transparent border-end-0"><i class="bi bi-key-fill"></i></span>
+                            <input type="password" class="form-control border-start-0 ps-0 form-senha" id="nova_senha" name="nova_senha">
+                            <button class="btn btn-outline-secondary border-start-0" type="button" onclick="togglePassword('nova_senha', this)"><i class="bi bi-eye"></i></button>
+                            <div class="invalid-feedback">A nova senha é obrigatória.</div>
+                        </div>
+                    </div>
+
+                    <div class="mb-4" id="repeteSenhaDiv">
+                        <label class="form-label text-muted small text-uppercase fw-bold">Confirmar Nova Senha</label>
+                        <div class="input-group input-group-sm">
+                            <span class="input-group-text bg-transparent border-end-0"><i class="bi bi-check-circle"></i></span>
+                            <input type="password" class="form-control border-start-0 ps-0 form-senha" id="confirmar_senha" name="confirmar_senha">
+                            <button class="btn btn-outline-secondary border-start-0" type="button" onclick="togglePassword('confirmar_senha', this)"><i class="bi bi-eye"></i></button>
+                            <div class="invalid-feedback" id="confirmar_senha_feedback">As senhas não conferem.</div>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('dashboard') }}" class="btn btn-sm btn-outline-secondary me-md-2 px-4"><i class="bi bi-x-circle me-1"></i>Cancelar</a>
+                        <button type="submit" class="btn btn-sm btn-primary px-4">
+                            <i class="bi bi-save me-2"></i>Salvar Alterações
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function togglePassword(inputId, btn) {
+        const input = document.getElementById(inputId);
+        const icon = btn.querySelector('i');
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.classList.remove('bi-eye');
+            icon.classList.add('bi-eye-slash');
+        } else {
+            input.type = 'password';
+            icon.classList.remove('bi-eye-slash');
+            icon.classList.add('bi-eye');
+        }
+    }
+
+    // Bootstrap validation + Custom password logic
+    (function () {
+        'use strict'
+        var forms = document.querySelectorAll('.needs-validation')
+
+        Array.prototype.slice.call(forms)
+            .forEach(function (form) {
+                form.addEventListener('submit', function (event) {
+                    let isValid = true;
+                    
+                    const senhaAtual = document.getElementById('senha_atual');
+                    const novaSenha = document.getElementById('nova_senha');
+                    const confirmarSenha = document.getElementById('confirmar_senha');
+                    const confirmarFeedback = document.getElementById('confirmar_senha_feedback');
+                    
+                    // Reset custom constraints
+                    senhaAtual.setCustomValidity('');
+                    novaSenha.setCustomValidity('');
+                    confirmarSenha.setCustomValidity('');
+
+                    // Check if user is trying to change password
+                    const isChangingPassword = senhaAtual.value.length > 0 || novaSenha.value.length > 0 || confirmarSenha.value.length > 0;
+                    
+                    if (isChangingPassword) {
+                        if (senhaAtual.value.length === 0) {
+                            senhaAtual.setCustomValidity('Invalid');
+                            isValid = false;
+                        }
+                        if (novaSenha.value.length === 0) {
+                            novaSenha.setCustomValidity('Invalid');
+                            isValid = false;
+                        }
+                        if (confirmarSenha.value.length === 0 || confirmarSenha.value !== novaSenha.value) {
+                            confirmarFeedback.textContent = confirmarSenha.value.length === 0 ? "Por favor confirme a nova senha." : "As senhas não conferem.";
+                            confirmarSenha.setCustomValidity('Invalid');
+                            isValid = false;
+                        }
+                    }
+
+                    if (!form.checkValidity() || !isValid) {
+                        event.preventDefault()
+                        event.stopPropagation()
+                    }
+
+                    form.classList.add('was-validated')
+                }, false)
+            })
+    })()
+</script>
+{% endblock %}

@@ -160,7 +160,7 @@
     <div class="card mb-4 shadow-sm border-0">
         <div class="card-header bg-transparent border-bottom p-3">
             <form action="{{ url_for('alunos') }}" method="GET" class="row g-3 align-items-center">
-                <div class="col-md-5">
+                <div class="col-md-4">
                     <div class="input-group">
                         <span class="input-group-text bg-transparent border-end-0 text-muted"><i
                                 class="bi bi-search"></i></span>
@@ -178,14 +178,18 @@
                         {% endfor %}
                     </select>
                 </div>
-                <div class="col-md-3">
-                    <div class="form-check form-check-inline mt-2">
+                <div class="col-md-4">
+                    <div class="form-check form-check-inline mt-2 mb-1">
                         <input class="form-check-input" type="checkbox" id="sem_mae" name="sem_mae" {% if sem_mae %}checked{% endif %}>
-                        <label class="form-check-label small" for="sem_mae">Sem Nome da Mãe</label>
+                        <label class="form-check-label small" for="sem_mae">Sem Mãe</label>
                     </div>
-                    <div class="form-check form-check-inline mt-2">
+                    <div class="form-check form-check-inline mt-2 mb-1">
                         <input class="form-check-input" type="checkbox" id="sem_data" name="sem_data" {% if sem_data %}checked{% endif %}>
-                        <label class="form-check-label small" for="sem_data">Sem Dt. Nascimento</label>
+                        <label class="form-check-label small" for="sem_data">Sem Dt. Nasc.</label>
+                    </div>
+                    <div class="form-check form-check-inline mt-2 mb-1">
+                        <input class="form-check-input" type="checkbox" id="somente_ativos" name="somente_ativos" {% if somente_ativos %}checked{% endif %}>
+                        <label class="form-check-label small text-success fw-bold" for="somente_ativos">Somente Ativos</label>
                     </div>
                 </div>
                 <div class="col-md-2 d-grid">
@@ -203,6 +207,7 @@
                             <th class="py-3">Dt. Nascimento</th>
                             <th class="py-3">Nome da Mãe</th>
                             <th class="py-3">Caixa</th>
+                            <th class="py-3">Status</th>
                             <th class="text-end pe-4 py-3">Ações</th>
                         </tr>
                     </thead>
@@ -215,6 +220,13 @@
                             <td class="text-muted">{{ aluno.nome_mae or '-' }}</td>
                             <td><span class="badge bg-info text-dark rounded-pill">{{ aluno.caixa.nome_formatado
                                     }}</span>
+                            </td>
+                            <td>
+                                {% if aluno.ativo %}
+                                <span class="badge bg-success rounded-pill px-3">Ativo</span>
+                                {% else %}
+                                <span class="badge bg-secondary rounded-pill px-3">Inativo</span>
+                                {% endif %}
                             </td>
                             <td class="text-end pe-4">
                                 <button type="button" class="btn btn-sm btn-outline-primary me-1" title="Editar"
@@ -333,14 +345,14 @@
             <nav aria-label="Navegação de página">
                 <ul class="pagination justify-content-center mb-0">
                     <li class="page-item {% if pagination.page == 1 %}disabled{% endif %}">
-                        <a class="page-link" href="{{ url_for('alunos', page=1, search=search, caixa_id=caixa_id, sem_mae='on' if sem_mae else '', sem_data='on' if sem_data else '') }}"
+                        <a class="page-link" href="{{ url_for('alunos', page=1, search=search, caixa_id=caixa_id, sem_mae='on' if sem_mae else '', sem_data='on' if sem_data else '', somente_ativos='on' if somente_ativos else '') }}"
                             aria-label="Primeira">
                             <i class="bi bi-chevron-double-left"></i>
                         </a>
                     </li>
 
                     <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
-                        <a class="page-link" href="{{ url_for('alunos', page=pagination.prev_num, search=search, caixa_id=caixa_id, sem_mae='on' if sem_mae else '', sem_data='on' if sem_data else '') }}"
+                        <a class="page-link" href="{{ url_for('alunos', page=pagination.prev_num, search=search, caixa_id=caixa_id, sem_mae='on' if sem_mae else '', sem_data='on' if sem_data else '', somente_ativos='on' if somente_ativos else '') }}"
                             aria-label="Anterior">
                             <i class="bi bi-chevron-left"></i>
                         </a>
@@ -353,7 +365,7 @@
                     <li class="page-item active"><span class="page-link">{{ page_num }}</span></li>
                     {% else %}
                     <li class="page-item"><a class="page-link"
-                            href="{{ url_for('alunos', page=page_num, search=search, caixa_id=caixa_id, sem_mae='on' if sem_mae else '', sem_data='on' if sem_data else '') }}">{{ page_num }}</a></li>
+                            href="{{ url_for('alunos', page=page_num, search=search, caixa_id=caixa_id, sem_mae='on' if sem_mae else '', sem_data='on' if sem_data else '', somente_ativos='on' if somente_ativos else '') }}">{{ page_num }}</a></li>
                     {% endif %}
                     {% else %}
                     <li class="page-item disabled"><span class="page-link">...</span></li>
@@ -361,14 +373,14 @@
                     {% endfor %}
 
                     <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
-                        <a class="page-link" href="{{ url_for('alunos', page=pagination.next_num, search=search, caixa_id=caixa_id, sem_mae='on' if sem_mae else '', sem_data='on' if sem_data else '') }}"
+                        <a class="page-link" href="{{ url_for('alunos', page=pagination.next_num, search=search, caixa_id=caixa_id, sem_mae='on' if sem_mae else '', sem_data='on' if sem_data else '', somente_ativos='on' if somente_ativos else '') }}"
                             aria-label="Próxima">
                             <i class="bi bi-chevron-right"></i>
                         </a>
                     </li>
 
                     <li class="page-item {% if pagination.page == pagination.pages %}disabled{% endif %}">
-                        <a class="page-link" href="{{ url_for('alunos', page=pagination.pages, search=search, caixa_id=caixa_id, sem_mae='on' if sem_mae else '', sem_data='on' if sem_data else '') }}"
+                        <a class="page-link" href="{{ url_for('alunos', page=pagination.pages, search=search, caixa_id=caixa_id, sem_mae='on' if sem_mae else '', sem_data='on' if sem_data else '', somente_ativos='on' if somente_ativos else '') }}"
                             aria-label="Última">
                             <i class="bi bi-chevron-double-right"></i>
                         </a>

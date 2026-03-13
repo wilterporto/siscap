@@ -1,7 +1,7 @@
 import os
 
 class Config:
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'voce-nunca-vai-adivinhar-esta-chave-secreta'
+    SECRET_KEY = os.environ.get('63f4945d921d599f27ae4fdf5bada3f1') or 'voce-nunca-vai-adivinhar-esta-chave-secreta'
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # Use absolute path for SQLite on PythonAnywhere to avoid issues

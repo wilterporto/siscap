@@ -1,6 +1,6 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session, send_file
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from models import db, Caixa, Aluno, User, Audit, SystemConfig
+from models import db, Caixa, Aluno, User, Audit, SystemConfig, get_local_time
 from config import DevelopmentConfig, ProductionConfig
 from datetime import datetime, timedelta
 from sqlalchemy import func, text
@@ -61,6 +61,42 @@ def normalize_text(text):
     only_ascii = "".join([c for c in nfkd_form if not unicodedata.combining(c)])
     # Return uppercase
     return only_ascii.upper()
+
+# Global variable to track last cleanup time
+last_cleanup_time = None
+
+def cleanup_old_exports():
+    """Remove arquivos de exportação na pasta static/downloads com mais de 5 dias"""
+    global last_cleanup_time
+    now = get_local_time()
+    
+    # Executar limpeza no máximo uma vez a cada hora para evitar overhead
+    if last_cleanup_time and (now - last_cleanup_time) < timedelta(hours=1):
+        return
+
+    try:
+        downloads_folder = os.path.join(app.root_path, 'static', 'downloads')
+        if not os.path.exists(downloads_folder):
+            return
+
+        five_days_ago = now - timedelta(days=5)
+        
+        for filename in os.listdir(downloads_folder):
+            file_path = os.path.join(downloads_folder, filename)
+            
+            # Garantir que é um arquivo (não diretório) e checar data de modificação
+            if os.path.isfile(file_path):
+                file_time = datetime.fromtimestamp(os.path.getmtime(file_path)).replace(tzinfo=now.tzinfo)
+                
+                if file_time < five_days_ago:
+                    try:
+                        os.remove(file_path)
+                    except Exception as e:
+                        print(f"Erro ao remover arquivo antigo {filename}: {e}")
+        
+        last_cleanup_time = now
+    except Exception as e:
+        print(f"Erro na rotina de limpeza de exportações: {e}")
 
 def create_app(config_class=DevelopmentConfig):
     if os.environ.get('FLASK_ENV') == 'production':
@@ -201,18 +237,28 @@ def check_session_timeout():
         last_activity = session.get('last_activity')
         
         if last_activity:
-            last_activity_time = datetime.fromisoformat(last_activity)
-            now = datetime.now()
-            
-            # Se passou mais de 10 minutos desde a última atividade
-            if now - last_activity_time > timedelta(minutes=10):
-                logout_user()
-                session.clear()
-                flash('Sua sessão expirou por inatividade. Por favor, faça login novamente.', 'warning')
-                return redirect(url_for('login'))
+            try:
+                last_activity_time = datetime.fromisoformat(last_activity)
+                now = get_local_time()
+                
+                # Suporte a transição suave de UTC naive para timezone aware
+                if last_activity_time.tzinfo is None:
+                    last_activity_time = last_activity_time.replace(tzinfo=now.tzinfo)
+                
+                # Se passou mais de 10 minutos desde a última atividade
+                if now - last_activity_time > timedelta(minutes=10):
+                    logout_user()
+                    session.clear()
+                    flash('Sua sessão expirou por inatividade. Por favor, faça login novamente.', 'warning')
+                    return redirect(url_for('login'))
+            except Exception:
+                pass
         
         # Atualizar timestamp da última atividade
-        session['last_activity'] = datetime.now().isoformat()
+        session['last_activity'] = get_local_time().isoformat()
+    
+    # Executa a limpeza automática de arquivos temporários de exportação
+    cleanup_old_exports()
 
 @app.before_request
 def check_admin_access():
@@ -314,7 +360,7 @@ def login():
             else:
                 login_user(user)
                 session.permanent = True
-                session['last_activity'] = datetime.now().isoformat()
+                session['last_activity'] = get_local_time().isoformat()
                 log_audit('LOGIN', 'User', target_id=user.id, details='Login successful')
                 return redirect(url_for('dashboard'))
         else:
@@ -876,7 +922,7 @@ def processar_importacao():
             errors = []
             
             # Create timestamp for logs
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamp = get_local_time().strftime("%Y%m%d_%H%M%S")
             log_filename = f"import_errors_{user_id}_{timestamp}.txt"
             upload_folder = os.path.join(app.root_path, 'static', 'uploads')
             if not os.path.exists(upload_folder):
@@ -1073,7 +1119,7 @@ def novo_aluno():
         if data_nascimento_input:  # Se foi fornecida uma data
             try:
                 data_nascimento = datetime.strptime(data_nascimento_input, '%Y-%m-%d').date()
-                today = datetime.now().date()
+                today = get_local_time().date()
                 
                 if data_nascimento > today:
                     flash('A data de nascimento não pode estar no futuro.', 'error')
@@ -1146,7 +1192,7 @@ def edit_aluno(id):
         if data_nascimento_input:  # Se foi fornecida uma data
             try:
                 data_nascimento = datetime.strptime(data_nascimento_input, '%Y-%m-%d').date()
-                today = datetime.now().date()
+                today = get_local_time().date()
                 
                 if data_nascimento > today:
                     flash('A data de nascimento não pode estar no futuro.', 'error')
@@ -1311,7 +1357,7 @@ def importacoes():
                     timestamp_str = '_'.join(parts[1:])
                     
                     # Converter timestamp para formato legível
-                    timestamp = datetime.now()  # Default
+                    timestamp = get_local_time()  # Default
                     try:
                         timestamp = datetime.strptime(timestamp_str, '%Y%m%d_%H%M%S')
                         data_formatada = timestamp.strftime('%d/%m/%Y %H:%M:%S')
@@ -1442,7 +1488,8 @@ def auditoria():
         'LOGOUT': 'Logout',
         'CREATE': 'Criar',
         'UPDATE': 'Atualizar',
-        'DELETE': 'Excluir'
+        'DELETE': 'Excluir',
+        'EXPORT': 'Exportar'
     }
     
     target_type_translations = {
@@ -1458,7 +1505,8 @@ def auditoria():
         {'value': 'LOGOUT', 'label': 'Logout'},
         {'value': 'CREATE', 'label': 'Criar'},
         {'value': 'UPDATE', 'label': 'Atualizar'},
-        {'value': 'DELETE', 'label': 'Excluir'}
+        {'value': 'DELETE', 'label': 'Excluir'},
+        {'value': 'EXPORT', 'label': 'Exportar'}
     ]
     
     # Lista de tipos de alvo disponíveis
@@ -1482,6 +1530,90 @@ def auditoria():
                          date_from=date_from,
                          date_to=date_to)
 
+
+@app.route('/exportar-alunos', methods=['GET'])
+@login_required
+def exportar_alunos():
+    if current_user.role != 'Administrador':
+        flash('Acesso negado. Apenas administradores podem exportar dados.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    return render_template('exportar_alunos.html')
+
+@app.route('/exportar-alunos/processar', methods=['POST'])
+@login_required
+def processar_exportacao():
+    if current_user.role != 'Administrador':
+        return jsonify({'error': 'Acesso negado.'}), 403
+
+    import pandas as pd
+    import io
+    import json
+    import os
+    from flask import stream_with_context
+
+    def generate():
+        try:
+            timestamp = get_local_time().strftime("%Y%m%d_%H%M%S")
+            file_name = f"exportacao_alunos_{timestamp}.xlsx"
+            upload_folder = os.path.join(app.root_path, 'static', 'downloads')
+            if not os.path.exists(upload_folder):
+                os.makedirs(upload_folder)
+            file_path = os.path.join(upload_folder, file_name)
+
+            yield json.dumps({"status": "info", "message": "Iniciando exportação...", "percent": 5}) + '\n'
+
+            with app.app_context():
+                total_alunos = Aluno.query.count()
+                
+                if total_alunos == 0:
+                    yield json.dumps({"status": "error", "message": "Nenhum aluno encontrado para exportar."}) + '\n'
+                    return
+                
+                yield json.dumps({"status": "start", "message": f"Preparando {total_alunos} alunos...", "percent": 10, "total": total_alunos}) + '\n'
+
+                data = []
+                BATCH_SIZE = 500
+                processed = 0
+
+                # Processar alunos em lotes para manter a conexão aberta e atualizar o progresso
+                for offset in range(0, total_alunos, BATCH_SIZE):
+                    batch = Aluno.query.outerjoin(Caixa).order_by(Caixa.letra, Caixa.numero, Aluno.nome).offset(offset).limit(BATCH_SIZE).all()
+                    
+                    for aluno in batch:
+                        data.append({
+                            'Nome': aluno.nome,
+                            'Data de Nascimento': aluno.data_nascimento.strftime('%d/%m/%Y') if aluno.data_nascimento else '',
+                            'Nome da mãe': aluno.nome_mae or '',
+                            'Nome do pai': aluno.nome_pai or '',
+                            'Caixa': aluno.caixa.nome_formatado if aluno.caixa else '',
+                            'Status': 'Ativo' if aluno.ativo else 'Inativo'
+                        })
+                        processed += 1
+                        
+                    percent = 10 + int((processed / total_alunos) * 70) # Takes 70% of progress
+                    yield json.dumps({"status": "progress", "percent": percent, "processed": processed, "total": total_alunos, "message": f"Processando dados ({processed}/{total_alunos})"}) + '\n'
+
+                yield json.dumps({"status": "info", "message": "Gerando arquivo Excel (processo final)...", "percent": 85}) + '\n'
+
+                df = pd.DataFrame(data)
+                
+                with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
+                    df.to_excel(writer, sheet_name='Alunos', index=False)
+                    
+                yield json.dumps({"status": "info", "message": "Finalizando e gravando LOG...", "percent": 95}) + '\n'
+                
+                log_audit('EXPORT', 'Aluno', details=f"Exportados {len(data)} alunos via Excel")
+                db.session.commit()
+                
+                download_url = url_for('static', filename=f'downloads/{file_name}')
+                
+                yield json.dumps({"status": "complete", "message": "Exportação concluída com sucesso!", "percent": 100, "download_url": download_url}) + '\n'
+
+        except Exception as e:
+            yield json.dumps({"status": "error", "message": str(e)}) + '\n'
+
+    return app.response_class(stream_with_context(generate()), mimetype='application/json')
 
 if __name__ == '__main__':
     app.run(debug=True)

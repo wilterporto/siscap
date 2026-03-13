@@ -1,7 +1,11 @@
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
+
+def get_local_time():
+    """Retorna a data e hora atual no fuso de Brasília (UTC-3)"""
+    return datetime.now(timezone(timedelta(hours=-3)))
 
 db = SQLAlchemy()
 
@@ -43,7 +47,7 @@ class Audit(db.Model):
     target_type = db.Column(db.String(50), nullable=False) # Aluno, User, Caixa
     target_id = db.Column(db.Integer, nullable=True)
     details = db.Column(db.Text, nullable=True)
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    timestamp = db.Column(db.DateTime, default=get_local_time)
     
     user = db.relationship('User', backref=db.backref('audits', lazy=True))
 

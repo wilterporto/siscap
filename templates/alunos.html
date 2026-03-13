@@ -40,7 +40,7 @@
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-circle me-1"></i>Cancelar</button>
                         <button type="submit" class="btn btn-success">Iniciar Importação</button>
                     </div>
                 </form>
@@ -160,12 +160,32 @@
     <div class="card mb-4 shadow-sm border-0">
         <div class="card-header bg-transparent border-bottom p-3">
             <form action="{{ url_for('alunos') }}" method="GET" class="row g-3 align-items-center">
-                <div class="col-md-10">
+                <div class="col-md-5">
                     <div class="input-group">
                         <span class="input-group-text bg-transparent border-end-0 text-muted"><i
                                 class="bi bi-search"></i></span>
                         <input type="text" class="form-control border-start-0 ps-0" name="search"
                             placeholder="Pesquisar por nome ou nome da mãe..." value="{{ search }}">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <select class="form-select" name="caixa_id">
+                        <option value="">Todas as caixas</option>
+                        {% for caixa in caixas %}
+                        <option value="{{ caixa.id }}" {% if caixa_id == caixa.id %}selected{% endif %}>
+                            {{ caixa.nome_formatado }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <div class="form-check form-check-inline mt-2">
+                        <input class="form-check-input" type="checkbox" id="sem_mae" name="sem_mae" {% if sem_mae %}checked{% endif %}>
+                        <label class="form-check-label small" for="sem_mae">Sem Nome da Mãe</label>
+                    </div>
+                    <div class="form-check form-check-inline mt-2">
+                        <input class="form-check-input" type="checkbox" id="sem_data" name="sem_data" {% if sem_data %}checked{% endif %}>
+                        <label class="form-check-label small" for="sem_data">Sem Dt. Nascimento</label>
                     </div>
                 </div>
                 <div class="col-md-2 d-grid">
@@ -192,21 +212,109 @@
                             <td class="ps-4 fw-bold text-primary">{{ aluno.nome }}</td>
                             <td>{{ aluno.data_nascimento.strftime('%d/%m/%Y') if aluno.data_nascimento else '<span
                                     class="text-muted fst-italic">Não informada</span>' | safe }}</td>
-                            <td class="text-muted">{{ aluno.nome_mae }}</td>
+                            <td class="text-muted">{{ aluno.nome_mae or '-' }}</td>
                             <td><span class="badge bg-info text-dark rounded-pill">{{ aluno.caixa.nome_formatado
                                     }}</span>
                             </td>
                             <td class="text-end pe-4">
-                                <a href="{{ url_for('edit_aluno', id=aluno.id) }}"
-                                    class="btn btn-sm btn-outline-primary me-1" title="Editar">
+                                <button type="button" class="btn btn-sm btn-outline-primary me-1" title="Editar"
+                                    data-bs-toggle="modal" data-bs-target="#editModal{{ aluno.id }}">
                                     <i class="bi bi-pencil-square"></i>
-                                </a>
+                                </button>
                                 <button type="button" class="btn btn-sm btn-outline-danger" title="Excluir"
-                                    onclick="confirmDelete('{{ url_for('delete_aluno', id=aluno.id) }}', 'o aluno {{ aluno.nome }}')">
+                                    data-url="{{ url_for('delete_aluno', id=aluno.id) }}" data-nome="o aluno {{ aluno.nome }}"
+                                    onclick="confirmDelete(this.dataset.url, this.dataset.nome)">
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </td>
                         </tr>
+                        
+                        <!-- Edit Modal -->
+                        <div class="modal fade" id="editModal{{ aluno.id }}" tabindex="-1" aria-labelledby="editModalLabel{{ aluno.id }}" aria-hidden="true">
+                            <div class="modal-dialog modal-lg">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title" id="editModalLabel{{ aluno.id }}"><i class="bi bi-pencil-square me-2 text-primary"></i>Editar Aluno</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                    </div>
+                                    <div class="modal-body p-4 text-start">
+                                        <form action="{{ url_for('edit_aluno', id=aluno.id) }}" method="POST"
+                                            class="needs-validation" novalidate>
+                                            <div class="mb-3">
+                                                <label class="form-label text-muted small text-uppercase fw-bold">Nome Completo <span style="color: red;">*</span></label>
+                                                <div class="input-group has-validation input-group-sm">
+                                                    <span class="input-group-text bg-transparent border-end-0"><i class="bi bi-person"></i></span>
+                                                    <input type="text" class="form-control border-start-0 ps-0" name="nome" required placeholder="Nome do aluno" value="{{ aluno.nome }}">
+                                                    <div class="invalid-feedback">Por favor, informe o nome.</div>
+                                                </div>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <label class="form-label text-muted small text-uppercase fw-bold">Data de Nascimento</label>
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text bg-transparent border-end-0"><i class="bi bi-calendar"></i></span>
+                                                    <input type="date" class="form-control border-start-0 ps-0 data-nascimento-input" name="data_nascimento" min="1900-01-01"
+                                                        value="{{ aluno.data_nascimento.strftime('%Y-%m-%d') if aluno.data_nascimento else '' }}">
+                                                </div>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <label class="form-label text-muted small text-uppercase fw-bold">Nome da Mãe</label>
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text bg-transparent border-end-0"><i class="bi bi-person-heart"></i></span>
+                                                    <input type="text" class="form-control border-start-0 ps-0" name="nome_mae" placeholder="Nome da mãe da criança" value="{{ aluno.nome_mae or '' }}">
+                                                </div>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                <label class="form-label text-muted small text-uppercase fw-bold">Nome do Pai</label>
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text bg-transparent border-end-0"><i class="bi bi-person"></i></span>
+                                                    <input type="text" class="form-control border-start-0 ps-0" name="nome_pai" placeholder="Nome do pai da criança" value="{{ aluno.nome_pai or '' }}">
+                                                </div>
+                                            </div>
+
+                                            <div class="mb-4">
+                                                <label class="form-label text-muted small text-uppercase fw-bold">Caixa <span style="color: red;">*</span></label>
+                                                <div class="input-group input-group-sm">
+                                                    <span class="input-group-text bg-transparent border-end-0"><i class="bi bi-archive"></i></span>
+                                                    <select class="form-select border-start-0 ps-0" name="caixa_id" required>
+                                                        <option value="" disabled>Selecione uma caixa...</option>
+                                                        {% for caixa in caixas %}
+                                                        <option value="{{ caixa.id }}" {% if aluno.caixa_id == caixa.id %}selected{% endif %}>
+                                                            {{ caixa.nome_formatado }}
+                                                        </option>
+                                                        {% endfor %}
+                                                    </select>
+                                                </div>
+                                            </div>
+
+                                            <div class="mb-4">
+                                                <div class="form-check form-switch mb-3">
+                                                    <input class="form-check-input" type="checkbox" name="ativo" id="ativo{{ aluno.id }}" {% if aluno.ativo %}checked{% endif %}>
+                                                    <label class="form-check-label" for="ativo{{ aluno.id }}">Aluno Ativo</label>
+                                                </div>
+
+                                                <div class="form-check form-switch">
+                                                    <input class="form-check-input" type="checkbox" name="homonimo_verificado" id="homonimo_{{ aluno.id }}" {% if aluno.homonimo_verificado %}checked{% endif %}>
+                                                    <label class="form-check-label fw-bold text-warning" for="homonimo_{{ aluno.id }}">
+                                                        <i class="bi bi-check-circle-fill me-1"></i>Verificado (Homônimo Conferido)
+                                                    </label>
+                                                </div>
+                                            </div>
+
+                                            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                                <button type="button" class="btn btn-sm btn-outline-secondary me-md-2 px-4" data-bs-dismiss="modal"><i class="bi bi-x-circle me-1"></i>Cancelar</button>
+                                                <button type="submit" class="btn btn-sm btn-primary px-4">
+                                                    <i class="bi bi-save me-2"></i>Salvar
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         {% else %}
                         <tr>
                             <td colspan="5" class="text-center py-5 text-muted">
@@ -224,17 +332,15 @@
         <div class="card-footer bg-transparent border-top-0 py-3">
             <nav aria-label="Navegação de página">
                 <ul class="pagination justify-content-center mb-0">
-                    <!-- First Page -->
                     <li class="page-item {% if pagination.page == 1 %}disabled{% endif %}">
-                        <a class="page-link" href="{{ url_for('alunos', page=1, search=search) }}"
+                        <a class="page-link" href="{{ url_for('alunos', page=1, search=search, caixa_id=caixa_id, sem_mae='on' if sem_mae else '', sem_data='on' if sem_data else '') }}"
                             aria-label="Primeira">
                             <i class="bi bi-chevron-double-left"></i>
                         </a>
                     </li>
 
-                    <!-- Previous Page -->
                     <li class="page-item {% if not pagination.has_prev %}disabled{% endif %}">
-                        <a class="page-link" href="{{ url_for('alunos', page=pagination.prev_num, search=search) }}"
+                        <a class="page-link" href="{{ url_for('alunos', page=pagination.prev_num, search=search, caixa_id=caixa_id, sem_mae='on' if sem_mae else '', sem_data='on' if sem_data else '') }}"
                             aria-label="Anterior">
                             <i class="bi bi-chevron-left"></i>
                         </a>
@@ -247,24 +353,22 @@
                     <li class="page-item active"><span class="page-link">{{ page_num }}</span></li>
                     {% else %}
                     <li class="page-item"><a class="page-link"
-                            href="{{ url_for('alunos', page=page_num, search=search) }}">{{ page_num }}</a></li>
+                            href="{{ url_for('alunos', page=page_num, search=search, caixa_id=caixa_id, sem_mae='on' if sem_mae else '', sem_data='on' if sem_data else '') }}">{{ page_num }}</a></li>
                     {% endif %}
                     {% else %}
                     <li class="page-item disabled"><span class="page-link">...</span></li>
                     {% endif %}
                     {% endfor %}
 
-                    <!-- Next Page -->
                     <li class="page-item {% if not pagination.has_next %}disabled{% endif %}">
-                        <a class="page-link" href="{{ url_for('alunos', page=pagination.next_num, search=search) }}"
+                        <a class="page-link" href="{{ url_for('alunos', page=pagination.next_num, search=search, caixa_id=caixa_id, sem_mae='on' if sem_mae else '', sem_data='on' if sem_data else '') }}"
                             aria-label="Próxima">
                             <i class="bi bi-chevron-right"></i>
                         </a>
                     </li>
 
-                    <!-- Last Page -->
                     <li class="page-item {% if pagination.page == pagination.pages %}disabled{% endif %}">
-                        <a class="page-link" href="{{ url_for('alunos', page=pagination.pages, search=search) }}"
+                        <a class="page-link" href="{{ url_for('alunos', page=pagination.pages, search=search, caixa_id=caixa_id, sem_mae='on' if sem_mae else '', sem_data='on' if sem_data else '') }}"
                             aria-label="Última">
                             <i class="bi bi-chevron-double-right"></i>
                         </a>
@@ -275,4 +379,48 @@
         {% endif %}
     </div>
 </div>
+
+<script>
+    // Set max date to today for birth date fields
+    document.addEventListener('DOMContentLoaded', function () {
+        const today = new Date().toISOString().split('T')[0];
+        const dateInputs = document.querySelectorAll('.data-nascimento-input');
+        dateInputs.forEach(input => {
+            input.setAttribute('max', today);
+            
+            input.addEventListener('change', function() {
+                const selectedDate = new Date(this.value);
+                if (!isNaN(selectedDate.getTime())) {
+                    const minDate = new Date('1900-01-01');
+                    const parts = this.value.split('-');
+                    const inputDate = new Date(parts[0], parts[1] - 1, parts[2]);
+                    
+                    if (inputDate < minDate) {
+                        this.setCustomValidity('O ano não pode ser menor que 1900.');
+                    } else if (this.value > today) {
+                        this.setCustomValidity('A data não pode estar no futuro.');
+                    } else {
+                        this.setCustomValidity('');
+                    }
+                }
+            });
+        });
+    });
+
+    // Bootstrap form validation
+    (function () {
+        'use strict'
+        var forms = document.querySelectorAll('.needs-validation')
+        Array.prototype.slice.call(forms)
+            .forEach(function (form) {
+                form.addEventListener('submit', function (event) {
+                    if (!form.checkValidity()) {
+                        event.preventDefault()
+                        event.stopPropagation()
+                    }
+                    form.classList.add('was-validated')
+                }, false)
+            })
+    })();
+</script>
 {% endblock %}

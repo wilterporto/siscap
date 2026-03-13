@@ -968,14 +968,32 @@ def processar_importacao():
 def alunos():
     page = request.args.get('page', 1, type=int)
     search = request.args.get('search', '')
+    caixa_id = request.args.get('caixa_id', type=int)
+    sem_mae = request.args.get('sem_mae') == 'on'
+    sem_data = request.args.get('sem_data') == 'on'
     
     query = Aluno.query
     if search:
         query = query.filter((Aluno.nome.ilike(f'%{search}%')) | (Aluno.nome_mae.ilike(f'%{search}%')))
         
+    if caixa_id:
+        query = query.filter(Aluno.caixa_id == caixa_id)
+        
+    if sem_mae:
+        query = query.filter((Aluno.nome_mae == None) | (Aluno.nome_mae == ''))
+        
+    if sem_data:
+        query = query.filter(Aluno.data_nascimento == None)
+        
     pagination = query.order_by(Aluno.nome).paginate(page=page, per_page=30)
     
-    return render_template('alunos.html', pagination=pagination, search=search)
+    caixas_records = db.session.query(Caixa, func.count(Aluno.id)).outerjoin(Aluno, Aluno.caixa_id == Caixa.id).group_by(Caixa.id).order_by(Caixa.letra, Caixa.numero).all()
+    caixas_info = [{'id': c.id, 'nome_formatado': c.nome_formatado, 'count': count} for c, count in caixas_records]
+    
+    system_config = SystemConfig.query.first()
+    permitir_acima = system_config.permitir_alunos_acima_capacidade if system_config else False
+    
+    return render_template('alunos.html', pagination=pagination, search=search, caixa_id=caixa_id, sem_mae=sem_mae, sem_data=sem_data, caixas=caixas_info, permitir_acima=permitir_acima)
 
 @app.route('/alunos/novo', methods=['GET', 'POST'])
 @login_required
@@ -1003,12 +1021,10 @@ def novo_aluno():
                 return redirect(url_for('novo_aluno'))
 
         nome_mae = request.form.get('nome_mae')
-        if nome_mae:
-            nome_mae = normalize_text(nome_mae)
+        nome_mae = normalize_text(nome_mae) if nome_mae and nome_mae.strip() else None
         
         nome_pai = request.form.get('nome_pai')
-        if nome_pai:
-            nome_pai = normalize_text(nome_pai)
+        nome_pai = normalize_text(nome_pai) if nome_pai and nome_pai.strip() else None
             
         caixa_id = request.form.get('caixa_id')
         ativo = True if request.form.get('ativo') == 'on' else False
@@ -1069,21 +1085,19 @@ def edit_aluno(id):
                 
                 if data_nascimento > today:
                     flash('A data de nascimento não pode estar no futuro.', 'error')
-                    return redirect(url_for('edit_aluno', id=id))
+                    return redirect(url_for('alunos'))
                 elif data_nascimento.year < 1900:
                     flash('O ano de nascimento não pode ser menor que 1900.', 'error')
-                    return redirect(url_for('edit_aluno', id=id))
+                    return redirect(url_for('alunos'))
             except ValueError:
                 flash('Data de nascimento inválida.', 'error')
-                return redirect(url_for('edit_aluno', id=id))
+                return redirect(url_for('alunos'))
 
         nome_mae = request.form.get('nome_mae')
-        if nome_mae:
-            nome_mae = normalize_text(nome_mae)
+        nome_mae = normalize_text(nome_mae) if nome_mae and nome_mae.strip() else None
         
         nome_pai = request.form.get('nome_pai')
-        if nome_pai:
-            nome_pai = normalize_text(nome_pai)
+        nome_pai = normalize_text(nome_pai) if nome_pai and nome_pai.strip() else None
             
         caixa_id = request.form.get('caixa_id')
         ativo = True if request.form.get('ativo') == 'on' else False
@@ -1099,7 +1113,7 @@ def edit_aluno(id):
                 current_count = Aluno.query.filter_by(caixa_id=caixa.id).count()
                 if current_count >= 100 and not permitir_acima:
                     flash(f'A caixa {caixa.nome_formatado} já está cheia (100 alunos). Para adicionar alunos além da capacidade, altere a configuração do sistema.', 'error')
-                    return redirect(url_for('edit_aluno', id=id))
+                    return redirect(url_for('alunos'))
 
             aluno.nome = nome
             aluno.data_nascimento = data_nascimento

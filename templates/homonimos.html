@@ -11,7 +11,8 @@
             </h5>
             <p class="card-text text-muted small mt-1 mb-0">Esta lista exibe alunos que compartilham o mesmo nome
                 completo,
-                o que pode indicar duplicidade ou apenas coincidência.</p>
+                o que pode indicar duplicidade ou apenas coincidência. O status pendente indica que a pasta do aluno
+                ainda não foi verificada.</p>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
@@ -28,7 +29,14 @@
                     <tbody>
                         {% for aluno in homonimos %}
                         <tr class="{% if not aluno.homonimo_verificado %}table-warning{% endif %}">
-                            <td class="ps-4 fw-bold">{{ aluno.nome }}</td>
+                            <td class="ps-4 fw-bold">
+                                {{ aluno.nome }}
+                                {% if aluno.caixa %}
+                                <span class="badge bg-secondary ms-2" title="Caixa da Pasta">
+                                    <i class="bi bi-box-seam me-1"></i>{{ aluno.caixa.nome_formatado }}
+                                </span>
+                                {% endif %}
+                            </td>
                             <td>{{ aluno.data_nascimento.strftime('%d/%m/%Y') if aluno.data_nascimento else '<span
                                     class="text-muted fst-italic">Não informada</span>' | safe }}</td>
                             <td>

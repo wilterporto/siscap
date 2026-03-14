@@ -31,6 +31,12 @@ class Config:
     SQLALCHEMY_DATABASE_URI = db_url or \
         'sqlite:///' + os.path.join(basedir, 'instance', 'siscap.db')
 
+    # Configurações para estabilidade de conexão (especialmente para PostgreSQL/Supabase no Render)
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_pre_ping': True,
+        'pool_recycle': 280,
+    }
+
     # Ensure JSON responses are not ASCII-escaped (allows UTF-8 characters)
     JSON_AS_ASCII = False
 

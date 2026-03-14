@@ -219,48 +219,62 @@ with app.app_context():
     # Migração: Tornar nome_mae e data_nascimento nullable
     try:
         with db.engine.connect() as conn:
-            # Verificar se a migração já foi aplicada
-            result = conn.execute(text("SELECT sql FROM sqlite_master WHERE type='table' AND name='aluno'"))
-            table_sql = result.fetchone()[0]
+            is_postgres = conn.dialect.name == 'postgresql'
+            is_sqlite = conn.dialect.name == 'sqlite'
             
-            # Se a tabela ainda tem NOT NULL em nome_mae ou data_nascimento, precisamos migrar
-            if 'nome_mae VARCHAR(100) NOT NULL' in table_sql or 'data_nascimento DATE NOT NULL' in table_sql:
-                print("Aplicando migração: tornando nome_mae e data_nascimento nullable...")
-                
-                # 1. Criar tabela temporária com estrutura correta
-                conn.execute(text("""
-                    CREATE TABLE aluno_new (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        nome VARCHAR(100) NOT NULL,
-                        data_nascimento DATE,
-                        nome_mae VARCHAR(100),
-                        nome_pai VARCHAR(100),
-                        caixa_id INTEGER NOT NULL,
-                        ativo BOOLEAN DEFAULT 0,
-                        homonimo_verificado BOOLEAN DEFAULT 0,
-                        created_by_id INTEGER,
-                        FOREIGN KEY (caixa_id) REFERENCES caixa(id),
-                        FOREIGN KEY (created_by_id) REFERENCES user(id)
-                    )
-                """))
-                
-                # 2. Copiar dados da tabela antiga para a nova
-                conn.execute(text("""
-                    INSERT INTO aluno_new (id, nome, data_nascimento, nome_mae, nome_pai, caixa_id, ativo, homonimo_verificado, created_by_id)
-                    SELECT id, nome, data_nascimento, nome_mae, nome_pai, caixa_id, ativo, homonimo_verificado, created_by_id
-                    FROM aluno
-                """))
-                
-                # 3. Remover tabela antiga
-                conn.execute(text("DROP TABLE aluno"))
-                
-                # 4. Renomear nova tabela
-                conn.execute(text("ALTER TABLE aluno_new RENAME TO aluno"))
-                
-                conn.commit()
-                print("Migração aplicada com sucesso!")
+            if is_sqlite:
+                # Verificar se a migração já foi aplicada no SQLite
+                result = conn.execute(text("SELECT sql FROM sqlite_master WHERE type='table' AND name='aluno'"))
+                row = result.fetchone()
+                if row:
+                    table_sql = row[0]
+                    # Se a tabela ainda tem NOT NULL em nome_mae ou data_nascimento, precisamos migrar
+                    if 'nome_mae VARCHAR(100) NOT NULL' in table_sql or 'data_nascimento DATE NOT NULL' in table_sql:
+                        print("Aplicando migração SQLite: tornando nome_mae e data_nascimento nullable...")
+                        
+                        # 1. Criar tabela temporária com estrutura correta
+                        conn.execute(text("""
+                            CREATE TABLE aluno_new (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                nome VARCHAR(100) NOT NULL,
+                                data_nascimento DATE,
+                                nome_mae VARCHAR(100),
+                                nome_pai VARCHAR(100),
+                                caixa_id INTEGER NOT NULL,
+                                ativo BOOLEAN DEFAULT 0,
+                                homonimo_verificado BOOLEAN DEFAULT 0,
+                                created_by_id INTEGER,
+                                FOREIGN KEY (caixa_id) REFERENCES caixa(id),
+                                FOREIGN KEY (created_by_id) REFERENCES user(id)
+                            )
+                        """))
+                        
+                        # 2. Copiar dados da tabela antiga para a nova
+                        conn.execute(text("""
+                            INSERT INTO aluno_new (id, nome, data_nascimento, nome_mae, nome_pai, caixa_id, ativo, homonimo_verificado, created_by_id)
+                            SELECT id, nome, data_nascimento, nome_mae, nome_pai, caixa_id, ativo, homonimo_verificado, created_by_id
+                            FROM aluno
+                        """))
+                        
+                        # 3. Remover tabela antiga
+                        conn.execute(text("DROP TABLE aluno"))
+                        
+                        # 4. Renomear nova tabela
+                        conn.execute(text("ALTER TABLE aluno_new RENAME TO aluno"))
+                        
+                        conn.commit()
+                        print("Migração SQLite aplicada com sucesso!")
+            
+            elif is_postgres:
+                # No PostgreSQL é muito mais simples
+                try:
+                    conn.execute(text("ALTER TABLE aluno ALTER COLUMN nome_mae DROP NOT NULL"))
+                    conn.execute(text("ALTER TABLE aluno ALTER COLUMN data_nascimento DROP NOT NULL"))
+                    conn.commit()
+                except Exception:
+                    pass # Se falhar, as colunas já podem ser nullable ou outro erro
     except Exception as e:
-        print(f"Erro ou migração já aplicada: {e}")
+        print(f"Erro ao processar migrações de nulidade: {e}")
         pass
 
 

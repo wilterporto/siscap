@@ -127,52 +127,55 @@ app, login_manager = create_app()
 
 with app.app_context():
     db.create_all()
-    # Simple migration to add column if not exists (for existing dbs)
+    # Migrações manuais para bancos de dados existentes
     try:
         with db.engine.connect() as conn:
-            conn.execute(text("ALTER TABLE aluno ADD COLUMN homonimo_verificado BOOLEAN DEFAULT 0"))
-            conn.commit()
-    except Exception:
-        pass # Column likely exists
-
-    try:
-        with db.engine.connect() as conn:
-            conn.execute(text("ALTER TABLE aluno ADD COLUMN nome_pai VARCHAR(100)"))
-            conn.commit()
-    except Exception:
-        pass # Column likely exists
-
-    try:
-        with db.engine.connect() as conn:
-            conn.execute(text("ALTER TABLE system_config ADD COLUMN favicon_path VARCHAR(200)"))
-            conn.commit()
-    except Exception:
-        pass # Column likely exists
-
-    try:
-        with db.engine.connect() as conn:
-            conn.execute(text("ALTER TABLE user ADD COLUMN role VARCHAR(20) DEFAULT 'Usuário'"))
-            conn.commit()
-    except Exception:
-        pass # Column likely exists
-        
-    try:
-        with db.engine.connect() as conn:
-            conn.execute(text("ALTER TABLE system_config ADD COLUMN permitir_alunos_acima_capacidade BOOLEAN DEFAULT 0"))
-            conn.commit()
-    except Exception:
-        pass # Column likely exists
+            # Lista de migrações: (tabela, coluna, tipo_sqlite, tipo_postgres)
+            migrations = [
+                ("aluno", "homonimo_verificado", "BOOLEAN DEFAULT 0", "BOOLEAN DEFAULT FALSE"),
+                ("aluno", "nome_pai", "VARCHAR(100)", "VARCHAR(100)"),
+                ("system_config", "favicon_path", "VARCHAR(200)", "VARCHAR(200)"),
+                ("user", "role", "VARCHAR(20) DEFAULT 'Usuário'", "VARCHAR(20) DEFAULT 'Usuário'"),
+                ("system_config", "permitir_alunos_acima_capacidade", "BOOLEAN DEFAULT 0", "BOOLEAN DEFAULT FALSE")
+            ]
+            
+            is_postgres = conn.dialect.name == 'postgresql'
+            
+            for table, col, type_sql, type_pg in migrations:
+                try:
+                    col_type = type_pg if is_postgres else type_sql
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col} {col_type}"))
+                    conn.commit()
+                except Exception:
+                    pass # Coluna já existe
+    except Exception as e:
+        print(f"Erro nas migrações iniciais: {e}")
     
     # Migração para as novas colunas de imagem em SystemConfig
     try:
         with db.engine.connect() as conn:
-            conn.execute(text("ALTER TABLE system_config ADD COLUMN login_image_data BLOB"))
-            conn.execute(text("ALTER TABLE system_config ADD COLUMN login_image_mimetype VARCHAR(50)"))
-            conn.execute(text("ALTER TABLE system_config ADD COLUMN favicon_data BLOB"))
-            conn.execute(text("ALTER TABLE system_config ADD COLUMN favicon_mimetype VARCHAR(50)"))
-            conn.commit()
-    except Exception:
-        pass # Columns likely exist
+            # Detecta se é PostgreSQL para usar BYTEA ou SQLite para usar BLOB
+            is_postgres = conn.dialect.name == 'postgresql'
+            binary_type = "BYTEA" if is_postgres else "BLOB"
+            
+            # Adiciona colunas uma a uma para evitar que o erro de uma (coluna já existente) 
+            # impeça a criação das outras
+            columns = [
+                (f"login_image_data", binary_type),
+                (f"login_image_mimetype", "VARCHAR(50)"),
+                (f"favicon_data", binary_type),
+                (f"favicon_mimetype", "VARCHAR(50)")
+            ]
+            
+            for col_name, col_type in columns:
+                try:
+                    conn.execute(text(f"ALTER TABLE system_config ADD COLUMN {col_name} {col_type}"))
+                    conn.commit()
+                except Exception:
+                    # Ignora erro se a coluna já existir
+                    pass
+    except Exception as e:
+        print(f"Erro na migração de SystemConfig: {e}")
         
     # Semente inicial do banco de dados (Cria admin se o banco estiver vazio)
     try:

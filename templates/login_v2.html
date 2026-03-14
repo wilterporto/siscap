@@ -44,8 +44,8 @@
     </style>
 </head>
 
-<body class="text-center" {% if config and config.login_image
-    %}style="background-image: url('{{ url_for('static', filename=config.login_image) }}'); background-size: cover; background-position: center;"
+<body class="text-center" {% if config and config.login_image_data
+    %}style="background-image: url('{{ url_for('display_system_image', image_type='login_bg') }}'); background-size: cover; background-position: center;"
     {% endif %}>
     <main class="form-signin w-100 m-auto">
         <form method="POST">

@@ -25,10 +25,10 @@
                                 Fundo (Login)</label>
                             <input class="form-control" type="file" id="login_image" name="login_image"
                                 accept="image/*">
-                            {% if config.login_image %}
+                            {% if config.login_image_data %}
                             <div class="mt-2">
                                 <small class="text-muted">Imagem atual:</small>
-                                <img src="{{ url_for('static', filename=config.login_image) }}" alt="Preview"
+                                <img src="{{ url_for('display_system_image', image_type='login_bg') }}" alt="Preview"
                                     class="img-thumbnail d-block mt-1" style="max-height: 150px;">
                             </div>
                             {% endif %}
@@ -41,10 +41,10 @@
                             </label>
                             <input class="form-control" type="file" id="favicon" name="favicon"
                                 accept=".ico,.png,.jpg,.jpeg">
-                            {% if config.favicon_path %}
+                            {% if config.favicon_data %}
                             <div class="mt-2">
                                 <small class="text-muted">Favicon atual:</small>
-                                <img src="{{ url_for('static', filename=config.favicon_path) }}" alt="Favicon"
+                                <img src="{{ url_for('display_system_image', image_type='favicon') }}" alt="Favicon"
                                     class="img-thumbnail d-block mt-1" style="width: 32px; height: 32px;">
                             </div>
                             {% endif %}

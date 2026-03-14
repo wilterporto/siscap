@@ -44,7 +44,7 @@ No painel do seu serviço no Render, vá na aba **Environment** e adicione as se
 ### Variáveis Obrigatórias
 *   **`DATABASE_URL`**: Cole a URL que você preparou no Passo 1 (com a senha correta).
 *   **`FLASK_ENV`**: `production`
-*   **`PYTHON_VERSION`**: `3.11.0`
+*   **`PYTHON_VERSION`**: `3.14.3`
 *   **`SECRET_KEY`**: (Uma sequência longa de letras e números aleatórios).
 
 ### Variáveis do Administrador Inicial (Opcional)

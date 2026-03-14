@@ -162,6 +162,17 @@ with app.app_context():
             conn.commit()
     except Exception:
         pass # Column likely exists
+    
+    # Migração para as novas colunas de imagem em SystemConfig
+    try:
+        with db.engine.connect() as conn:
+            conn.execute(text("ALTER TABLE system_config ADD COLUMN login_image_data BLOB"))
+            conn.execute(text("ALTER TABLE system_config ADD COLUMN login_image_mimetype VARCHAR(50)"))
+            conn.execute(text("ALTER TABLE system_config ADD COLUMN favicon_data BLOB"))
+            conn.execute(text("ALTER TABLE system_config ADD COLUMN favicon_mimetype VARCHAR(50)"))
+            conn.commit()
+    except Exception:
+        pass # Columns likely exist
         
     # Semente inicial do banco de dados (Cria admin se o banco estiver vazio)
     try:
@@ -692,57 +703,54 @@ def configuracoes():
         config.smtp_sender_email = request.form.get('smtp_sender_email')
         config.permitir_alunos_acima_capacidade = True if request.form.get('permitir_alunos_acima_capacidade') == 'on' else False
         
-        # Handle Image Upload
+        # Handle Image Upload (Save to DB)
         if 'login_image' in request.files:
             file = request.files['login_image']
             if file and file.filename != '':
-                filename = secure_filename(file.filename)
-                # Create upload folder if not exists
-                upload_folder = os.path.join(app.root_path, 'static', 'uploads')
-                if not os.path.exists(upload_folder):
-                    os.makedirs(upload_folder)
-                    
-                filepath = os.path.join(upload_folder, filename)
-                file.save(filepath)
-                config.login_image = f'uploads/{filename}'
+                config.login_image_data = file.read()
+                config.login_image_mimetype = file.mimetype
         
-        # Handle Favicon Upload
+        # Handle Favicon Upload (Resize and Save to DB)
         if 'favicon' in request.files:
             file = request.files['favicon']
             if file and file.filename != '':
-                filename = secure_filename(file.filename)
-                # Create upload folder if not exists
-                upload_folder = os.path.join(app.root_path, 'static', 'uploads')
-                if not os.path.exists(upload_folder):
-                    os.makedirs(upload_folder)
-                    
-                filepath = os.path.join(upload_folder, filename)
-                file.save(filepath)
-                
                 try:
                     from PIL import Image
-                    img = Image.open(filepath)
+                    import io
+                    
+                    # Carrega a imagem da memória
+                    img = Image.open(file)
                     
                     # Redimensiona mantendo a proporção (máximo 512x512)
                     img.thumbnail((512, 512), Image.Resampling.LANCZOS)
                     
-                    ext = filename.lower()
+                    # Salva em um buffer na memória
+                    img_io = io.BytesIO()
+                    ext = file.filename.lower()
+                    
                     if ext.endswith('.png'):
-                        img.save(filepath, format="PNG", optimize=True)
+                        img.save(img_io, format="PNG", optimize=True)
+                        mimetype = "image/png"
                     elif ext.endswith(('.jpg', '.jpeg')):
                         if img.mode in ("RGBA", "P"):
                             img = img.convert("RGB")
-                        img.save(filepath, format="JPEG", optimize=True, quality=85)
+                        img.save(img_io, format="JPEG", optimize=True, quality=85)
+                        mimetype = "image/jpeg"
                     elif ext.endswith('.ico'):
-                        img.save(filepath, format="ICO")
+                        img.save(img_io, format="ICO")
+                        mimetype = "image/x-icon"
                     else:
-                        img.save(filepath, optimize=True)
-                except ImportError:
-                    print("Atenção: A biblioteca Pillow não está instalada. A compressão de imagem foi pulada.")
+                        img.save(img_io, format="PNG", optimize=True)
+                        mimetype = "image/png"
+                        
+                    config.favicon_data = img_io.getvalue()
+                    config.favicon_mimetype = mimetype
                 except Exception as e:
-                    print(f"Erro ao comprimir favicon: {str(e)}")
-                    
-                config.favicon_path = f'uploads/{filename}'
+                    # Se falhar o processamento com Pillow, salva o original
+                    file.seek(0)
+                    config.favicon_data = file.read()
+                    config.favicon_mimetype = file.mimetype
+                    print(f"Erro ao processar favicon: {str(e)}")
         
         db.session.commit()
         flash('Configurações salvas com sucesso!', 'success')
@@ -1641,6 +1649,21 @@ def processar_exportacao():
             yield json.dumps({"status": "error", "message": str(e)}) + '\n'
 
     return app.response_class(stream_with_context(generate()), mimetype='application/json')
+
+@app.route('/system-static/<image_type>')
+def display_system_image(image_type):
+    """Serve imagens do sistema (fundo de login ou favicon) a partir do banco de dados"""
+    config = db.session.execute(db.select(SystemConfig)).scalar_one_or_none()
+    if not config:
+        return "Configuração não encontrada", 404
+        
+    from flask import Response
+    if image_type == 'login_bg' and config.login_image_data:
+        return Response(config.login_image_data, mimetype=config.login_image_mimetype)
+    elif image_type == 'favicon' and config.favicon_data:
+        return Response(config.favicon_data, mimetype=config.favicon_mimetype)
+        
+    return "Imagem não encontrada", 404
 
 if __name__ == '__main__':
     app.run(debug=True)

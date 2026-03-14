@@ -36,8 +36,10 @@ class SystemConfig(db.Model):
     smtp_password = db.Column(db.String(120), nullable=True)
     smtp_use_tls = db.Column(db.Boolean, default=True)
     smtp_sender_email = db.Column(db.String(120), nullable=True)
-    login_image = db.Column(db.String(200), nullable=True) # Path relative to static folder (e.g. 'img/login_bg.jpg')
-    favicon_path = db.Column(db.String(200), nullable=True) # Path relative to static folder
+    login_image_data = db.Column(db.LargeBinary, nullable=True)
+    login_image_mimetype = db.Column(db.String(50), nullable=True)
+    favicon_data = db.Column(db.LargeBinary, nullable=True)
+    favicon_mimetype = db.Column(db.String(50), nullable=True)
     permitir_alunos_acima_capacidade = db.Column(db.Boolean, default=False)
 
 class Audit(db.Model):

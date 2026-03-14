@@ -136,9 +136,16 @@
                                 progressPercent.textContent = '100%';
                                 progressDetails.textContent = 'Concluído';
 
-                                resultContainer.innerHTML = `
-                                    <div class="alert alert-success py-2 small mb-0">
+                                 resultContainer.innerHTML = `
+                                    <div class="alert ${data.errors > 0 ? 'alert-warning' : 'alert-success'} py-2 small mb-0">
+                                        <strong>Concluído!</strong><br>
                                         Sucesso: ${data.success} | Erros: ${data.errors}
+                                        ${data.error_log_url ? `
+                                        <div class="mt-2 text-center">
+                                            <a href="${data.error_log_url}" target="_blank" class="btn btn-sm btn-outline-danger">
+                                                <i class="bi bi-file-earmark-arrow-down me-1"></i>Baixar Relatório de Erros
+                                            </a>
+                                        </div>` : ''}
                                     </div>`;
                                 resultContainer.classList.remove('d-none');
                                 btnClose.classList.remove('d-none');

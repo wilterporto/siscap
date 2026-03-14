@@ -1109,7 +1109,9 @@ def processar_importacao():
                                 alunos_batch = []
                                 
                         except Exception as e:
-                            errors.append(f"Linha {idx + 1}: {str(e)}")
+                            # Captura os dados da linha para o relatório de erros
+                            line_data = " | ".join([str(v) if v is not None else "" for v in row_data])
+                            errors.append(f"LINHA {idx + 1}: Erro: {str(e)} -- DADOS: [{line_data}]")
                         
                         if processed_count % 50 == 0:
                             # Percentual limitado a 100% caso ws.max_row falhe
@@ -1124,11 +1126,23 @@ def processar_importacao():
                     
                     error_url = None
                     if errors:
-                        with open(log_path, 'w', encoding='utf-8') as f:
-                            f.write(f"Relatório de Erros - Importação de Alunos - {timestamp}\n")
-                            f.write("="*80 + "\n\n")
-                            for err in errors: f.write(f"{err}\n")
-                        error_url = url_for('static', filename=f'uploads/{log_filename}')
+                        try:
+                            # Garante que a pasta static/uploads exista
+                            if not os.path.exists(upload_folder):
+                                os.makedirs(upload_folder)
+                                
+                            with open(log_path, 'w', encoding='utf-8') as f:
+                                f.write(f"RELATÓRIO DE ERROS - IMPORTAÇÃO DE ALUNOS - {timestamp}\n")
+                                f.write(f"Total Success: {success_count} | Total Errors: {len(errors)}\n")
+                                f.write("="*100 + "\n")
+                                f.write("FORMATO: LINHA: MENSAGEM DE ERRO -- DADOS ORIGINAIS\n")
+                                f.write("="*100 + "\n\n")
+                                for err in errors:
+                                    f.write(f"{err}\n")
+                            
+                            error_url = url_for('static', filename=f'uploads/{log_filename}')
+                        except Exception as log_err:
+                            print(f"Erro ao gravar log: {log_err}")
 
                     yield json.dumps({"status": "complete", "success": success_count, "errors": len(errors), "error_log_url": error_url}) + '\n'
 

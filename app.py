@@ -938,37 +938,30 @@ def importar_alunos():
 @app.route('/alunos/importar/processar', methods=['POST'])
 @login_required
 def processar_importacao():
-    import pandas as pd
-    import time
-    from flask import stream_with_context
-    
-    if 'file' not in request.files:
-        return jsonify({'error': 'Nenhum arquivo enviado'}), 400
-    
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'Arquivo inválido'}), 400
-        
     try:
-        # Load excel
-        df = pd.read_excel(file)
+        from openpyxl import load_workbook
+        import json
+        import os
+        from flask import stream_with_context
+        import tempfile
+        import time
+        from datetime import datetime
         
-        # Verify columns
-        required_cols = ['Nome', 'DataNascimento', 'NomeMae', 'CaixaLetra', 'CaixaNumero']
-        missing_cols = [col for col in required_cols if col not in df.columns]
+        if 'file' not in request.files:
+            return jsonify({'error': 'Nenhum arquivo enviado'}), 400
         
-        if missing_cols:
-            return jsonify({'error': f'Colunas faltando: {", ".join(missing_cols)}'}), 400
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'Arquivo inválido'}), 400
+            
+        # Salva o arquivo temporariamente para processamento iterativo estável
+        temp_dir = tempfile.gettempdir()
+        temp_path = os.path.join(temp_dir, f"import_{current_user.id}_{int(time.time())}.xlsx")
+        file.save(temp_path)
         
-        total_rows = len(df)
-        
-        # Capture user ID outside generator to avoid context issues if strictly needed, 
-        # though stream_with_context handles it.
         user_id = current_user.id
         
         def generate():
-            import json
-            import os
             processed_count = 0
             success_count = 0
             errors = []
@@ -981,31 +974,57 @@ def processar_importacao():
                 os.makedirs(upload_folder)
             log_path = os.path.join(upload_folder, log_filename)
             
-            with app.app_context():
-                # --- STAGE 1: CAIXAS ---
-                yield json.dumps({"status": "info", "message": "Etapa 1/2: Verificando caixas..."}) + '\n'
+            try:
+                # Usar read_only=True para economizar memória (crucial para o Render)
+                wb = load_workbook(temp_path, read_only=True, data_only=True)
+                ws = wb.active
                 
-                try:
-                    # Fetch all existing caixas to memory map: {(letra, numero): id}
+                # Ler cabeçalho e mapear colunas
+                rows = ws.iter_rows(values_only=True)
+                header = next(rows)
+                
+                required_cols = ['Nome', 'DataNascimento', 'NomeMae', 'CaixaLetra', 'CaixaNumero']
+                col_map = {col: header.index(col) for col in required_cols if col in header}
+                
+                missing_cols = [col for col in required_cols if col not in col_map]
+                if missing_cols:
+                    yield json.dumps({'status': 'error', 'message': f'Colunas faltando: {", ".join(missing_cols)}'}) + '\n'
+                    wb.close()
+                    if os.path.exists(temp_path): os.remove(temp_path)
+                    return
+
+                # Estimar total de linhas (excluindo cabeçalho)
+                # No modo read_only ws.max_row pode ser impreciso, mas é o melhor que temos sem iterar tudo
+                total_rows = ws.max_row - 1 if ws.max_row else 0
+                
+                with app.app_context():
+                    # --- STAGE 1: CAIXAS ---
+                    yield json.dumps({"status": "info", "message": "Etapa 1/2: Verificando caixas..."}) + '\n'
+                    
                     existing_caixas = Caixa.query.all()
                     caixa_map = {(c.letra, c.numero): c.id for c in existing_caixas}
                     
-                    # Identify needed caixas from DF
                     needed_caixas = set()
                     
-                    # First pass to find caixas
-                    for _, row in df.iterrows():
+                    # Primeira passada manual leve para caixas (apenas stage 1)
+                    # Para economizar memória, não armazenamos as linhas, apenas os dados da caixa
+                    # Re-open workbook to iterate rows again for stage 1
+                    wb_stage1 = load_workbook(temp_path, read_only=True, data_only=True)
+                    ws_stage1 = wb_stage1.active
+                    rows_stage1 = ws_stage1.iter_rows(values_only=True)
+                    next(rows_stage1) # Skip header
+                    
+                    for row_data in rows_stage1:
                         try:
-                            l = normalize_text(str(row['CaixaLetra'])).strip()
-                            raw_n = row['CaixaNumero']
-                            try:
-                                n = int(float(raw_n))
-                            except:
-                                n = int(raw_n)
-                            # Only add if valid
-                            needed_caixas.add((l, n))
+                            l_idx = col_map['CaixaLetra']
+                            n_idx = col_map['CaixaNumero']
+                            if row_data[l_idx] and row_data[n_idx]:
+                                l = normalize_text(str(row_data[l_idx])).strip()
+                                n = int(float(row_data[n_idx]))
+                                needed_caixas.add((l, n))
                         except:
-                            pass # Validation happens in stage 2
+                            pass
+                    wb_stage1.close() # Close workbook for stage 1
                     
                     new_caixas_list = []
                     for (l, n) in needed_caixas:
@@ -1013,109 +1032,113 @@ def processar_importacao():
                             new_caixas_list.append(Caixa(letra=l, numero=n))
                     
                     if new_caixas_list:
-                        count_new = len(new_caixas_list)
-                        yield json.dumps({"status": "info", "message": f"Etapa 1/2: Cadastrando {count_new} novas caixas..."}) + '\n'
                         db.session.bulk_save_objects(new_caixas_list)
                         db.session.commit()
-                        
-                        # Refresh map to get IDs of new caixas
+                        # Refresh map
                         existing_caixas = Caixa.query.all()
                         caixa_map = {(c.letra, c.numero): c.id for c in existing_caixas}
+                        yield json.dumps({"status": "info", "message": f"Novas caixas cadastradas: {len(new_caixas_list)}"}) + '\n'
                     else:
                         yield json.dumps({"status": "info", "message": "Etapa 1/2: Caixas verificadas."}) + '\n'
-
-                except Exception as e:
-                     yield json.dumps({"status": "info", "message": f"Erro na verificação de caixas: {str(e)}"}) + '\n'
-
-                # --- STAGE 2: ALUNOS ---
-                yield json.dumps({"status": "start", "total": total_rows, "message": "Etapa 2/2: Importando alunos..."}) + '\n'
-                
-                alunos_batch = []
-                BATCH_SIZE = 1000
-                
-                for idx, row in df.iterrows():
-                    processed_count += 1
-                    try:
-                        nome = normalize_text(str(row['Nome'])).strip()
-                        
-                        # Data de nascimento é opcional
-                        data_nascimento = None
-                        if pd.notna(row['DataNascimento']) and str(row['DataNascimento']).strip():
-                            nasc_str = str(row['DataNascimento'])
-                            try:
-                                if isinstance(row['DataNascimento'], (datetime, pd.Timestamp)):
-                                    data_nascimento = row['DataNascimento'].date()
-                                else:
-                                    dt = pd.to_datetime(row['DataNascimento'], errors='coerce', dayfirst=True)
-                                    if pd.notna(dt):
-                                        data_nascimento = dt.date()
-                            except:
-                                try:
-                                    data_nascimento = datetime.strptime(nasc_str, '%d/%m/%Y').date()
-                                except:
-                                    try:
-                                        data_nascimento = datetime.strptime(nasc_str, '%Y-%m-%d').date()
-                                    except:
-                                        # Se não conseguir parsear, deixa None (opcional)
-                                        pass
-                                
-                        nome_mae = normalize_text(str(row['NomeMae'])).strip() if pd.notna(row['NomeMae']) else None
-                        
-                        letra = normalize_text(str(row['CaixaLetra'])).strip()
-                        try:
-                            numero = int(float(row['CaixaNumero']))
-                        except:
-                            numero = int(row['CaixaNumero'])
-                        
-                        caixa_id = caixa_map.get((letra, numero))
-                        if not caixa_id:
-                            # Should exist after stage 1
-                            raise ValueError(f"Caixa {letra}-{numero} não encontrada.")
-                        
-                        aluno = Aluno(
-                            nome=nome,
-                            data_nascimento=data_nascimento,
-                            nome_mae=nome_mae,
-                            caixa_id=caixa_id,
-                            created_by_id=user_id,
-                            ativo=False
-                        )
-                        alunos_batch.append(aluno)
-                        
-                        if len(alunos_batch) >= BATCH_SIZE:
-                            db.session.bulk_save_objects(alunos_batch)
-                            db.session.commit()
-                            success_count += len(alunos_batch)
-                            alunos_batch = []
-                            
-                    except Exception as e:
-                        errors.append(f"Linha {idx + 2}: {str(e)}")
                     
-                    if processed_count % 50 == 0 or processed_count == total_rows:
-                        progress = int((processed_count / total_rows) * 100)
-                        yield json.dumps({"status": "progress", "percent": progress, "processed": processed_count, "total": total_rows}) + '\n'
-                
-                if alunos_batch:
-                    try:
+                    # --- STAGE 2: ALUNOS ---
+                    yield json.dumps({"status": "start", "total": total_rows, "message": "Etapa 2/2: Importando alunos..."}) + '\n'
+                    
+                    # Reiniciar iterador de linhas para stage 2
+                    # Re-open workbook for stage 2
+                    wb_stage2 = load_workbook(temp_path, read_only=True, data_only=True)
+                    ws_stage2 = wb_stage2.active
+                    rows_stage2 = ws_stage2.iter_rows(values_only=True)
+                    next(rows_stage2) # Pular cabeçalho
+                    
+                    alunos_batch = []
+                    BATCH_SIZE = 500 # Reduzido para maior segurança de memória
+                    
+                    idx = 0
+                    for row_data in rows_stage2:
+                        idx += 1
+                        processed_count += 1
+                        
+                        try:
+                            nome_val = row_data[col_map['Nome']]
+                            if not nome_val: continue # Pula linhas vazias
+                            
+                            nome = normalize_text(str(nome_val)).strip()
+                            
+                            # Data de nascimento
+                            data_nascimento = None
+                            nasc_val = row_data[col_map['DataNascimento']]
+                            if nasc_val:
+                                if isinstance(nasc_val, datetime):
+                                    data_nascimento = nasc_val.date()
+                                else:
+                                    # Fallback manual de parse
+                                    try:
+                                        nasc_str = str(nasc_val).strip()
+                                        for fmt in ('%d/%m/%Y', '%Y-%m-%d', '%d-%m-%Y'):
+                                            try:
+                                                data_nascimento = datetime.strptime(nasc_str, fmt).date()
+                                                break
+                                            except: pass
+                                    except: pass
+                                
+                            mae_val = row_data[col_map['NomeMae']]
+                            nome_mae = normalize_text(str(mae_val)).strip() if mae_val else None
+                            
+                            letra = normalize_text(str(row_data[col_map['CaixaLetra']])).strip()
+                            numero = int(float(row_data[col_map['CaixaNumero']]))
+                            
+                            caixa_id = caixa_map.get((letra, numero))
+                            if not caixa_id:
+                                raise ValueError(f"Caixa {letra}-{numero} não encontrada.")
+                            
+                            aluno = Aluno(
+                                nome=nome,
+                                data_nascimento=data_nascimento,
+                                nome_mae=nome_mae,
+                                caixa_id=caixa_id,
+                                created_by_id=user_id,
+                                ativo=False
+                            )
+                            alunos_batch.append(aluno)
+                            
+                            if len(alunos_batch) >= BATCH_SIZE:
+                                db.session.bulk_save_objects(alunos_batch)
+                                db.session.commit()
+                                success_count += len(alunos_batch)
+                                alunos_batch = []
+                                
+                        except Exception as e:
+                            errors.append(f"Linha {idx + 1}: {str(e)}")
+                        
+                        if processed_count % 50 == 0:
+                            # Percentual limitado a 100% caso ws.max_row falhe
+                            progress = min(100, int((processed_count / total_rows) * 100)) if total_rows > 0 else 0
+                            yield json.dumps({"status": "progress", "percent": progress, "processed": processed_count, "total": total_rows}) + '\n'
+                    
+                    # Lote final
+                    if alunos_batch:
                         db.session.bulk_save_objects(alunos_batch)
                         db.session.commit()
                         success_count += len(alunos_batch)
-                    except Exception as e:
-                        errors.append(f"Erro ao salvar lote final: {str(e)}")
                     
-                error_url = None
-                if errors:
-                    try:
+                    error_url = None
+                    if errors:
                         with open(log_path, 'w', encoding='utf-8') as f:
                             f.write(f"Relatório de Erros - Importação de Alunos - {timestamp}\n")
                             f.write("="*80 + "\n\n")
-                            for err in errors:
-                                f.write(f"{err}\n")
+                            for err in errors: f.write(f"{err}\n")
                         error_url = url_for('static', filename=f'uploads/{log_filename}')
-                    except Exception as e:
-                       errors.append(f"Falha ao gerar arquivo de log: {str(e)}")
 
-                yield json.dumps({"status": "complete", "success": success_count, "errors": len(errors), "error_log_url": error_url}) + '\n'
+                    yield json.dumps({"status": "complete", "success": success_count, "errors": len(errors), "error_log_url": error_url}) + '\n'
+
+            except Exception as e:
+                yield json.dumps({"status": "error", "message": f"Falha no processamento: {str(e)}"}) + '\n'
+            finally:
+                if 'wb' in locals(): wb.close()
+                if 'wb_stage1' in locals(): wb_stage1.close()
+                if 'wb_stage2' in locals(): wb_stage2.close()
+                if os.path.exists(temp_path): os.remove(temp_path)
 
         return app.response_class(stream_with_context(generate()), mimetype='application/json')
 

@@ -1719,6 +1719,13 @@ def display_system_image(image_type):
         
     return "Imagem não encontrada", 404
 
+@app.route('/sw.js')
+def sw():
+    return app.send_static_file('sw.js')
+
+@app.route('/manifest.json')
+def manifest():
+    return app.send_static_file('manifest.json')
+
 if __name__ == '__main__':
     app.run(debug=True)
-

@@ -5,6 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SISCAP - Gestão de Alunos Inativos</title>
+    <meta name="theme-color" content="#1e1e2e">
+    <link rel="manifest" href="{{ url_for('manifest') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='icons/icon-192x192.png') }}">
     <!-- Favicon -->
     {% if system_config and system_config.favicon_data %}
     <link rel="icon" href="{{ url_for('display_system_image', image_type='favicon') }}">
@@ -263,6 +266,18 @@
         crossorigin="anonymous"></script>
 
     <script>
+        // PWA Service Worker Registration
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register("{{ url_for('sw') }}")
+                    .then((registration) => {
+                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                    }, (err) => {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
+
         // Global Confirmation System
         let confirmCallback = null;
         let confirmModal = null; // Will be initialized on DOMContentLoaded

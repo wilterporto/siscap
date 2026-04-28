@@ -1,0 +1,21 @@
+{
+  "name": "SISCAP - Gestão de Alunos",
+  "short_name": "SISCAP",
+  "description": "Sistema de Gestão de Alunos Inativos",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#11111b",
+  "theme_color": "#1e1e2e",
+  "icons": [
+    {
+      "src": "/static/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/static/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

@@ -775,6 +775,36 @@ def configuracoes():
         
     return render_template('configuracoes.html', config=config)
 
+@app.route('/configuracoes/apagar_tudo', methods=['POST'])
+@login_required
+def apagar_tudo():
+    if current_user.role != 'Administrador':
+        flash('Acesso negado. Apenas administradores podem realizar esta operação.', 'error')
+        return redirect(url_for('configuracoes'))
+        
+    motivo = request.form.get('motivo')
+    if not motivo or not motivo.strip():
+        flash('O motivo é obrigatório para realizar esta operação.', 'error')
+        return redirect(url_for('configuracoes'))
+        
+    try:
+        num_alunos = Aluno.query.count()
+        num_caixas = Caixa.query.count()
+        
+        # Como Aluno tem chave estrangeira para Caixa, precisamos deletar os alunos primeiro.
+        Aluno.query.delete()
+        Caixa.query.delete()
+        
+        log_audit('DELETE', 'Sistema', details=f'Todos os alunos ({num_alunos}) e pastas ({num_caixas}) foram apagados. Motivo: {motivo}')
+        db.session.commit()
+        
+        flash(f'Sucesso! {num_alunos} alunos e {num_caixas} pastas foram apagados.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao apagar dados: {str(e)}', 'error')
+        
+    return redirect(url_for('configuracoes'))
+
 @app.route('/')
 @login_required
 def dashboard():

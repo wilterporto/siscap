@@ -1,0 +1,44 @@
+# Ambientes virtuais
+venv/
+.venv/
+env/
+.env_venv/
+
+# Variáveis de ambiente
+.env
+.env.local
+.env.*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Flask
+instance/
+.webassets-cache
+
+# Banco de dados
+*.sqlite
+*.sqlite3
+*.db
+
+# Logs
+*.log
+
+# SO
+.DS_Store
+Thumbs.db
+
+# IDEs e Editores
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Outros
+node_modules/
+dist/
+build/
+*.egg-info/

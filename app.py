@@ -960,6 +960,20 @@ def delete_caixa(id):
         
     return redirect(url_for('caixas'))
 
+@app.route('/caixas/imprimir/<int:id>', methods=['GET'])
+@login_required
+def imprimir_caixa(id):
+    caixa = db.get_or_404(Caixa, id)
+    # Buscar todos os alunos contidos na caixa em ordem alfabetica
+    alunos = Aluno.query.filter_by(caixa_id=id).order_by(Aluno.nome).all()
+    
+    log_audit('EXPORT', 'Caixa', target_id=id, details=f'Imprimiu relacao de alunos da caixa {caixa.nome_formatado}')
+    db.session.commit()
+    
+    data_hora_atual = get_local_time().strftime('%d/%m/%Y às %H:%M:%S')
+    
+    return render_template('imprimir_caixa.html', caixa=caixa, alunos=alunos, data_hora_atual=data_hora_atual)
+
 @app.route('/alunos/importar', methods=['GET'])
 @login_required
 def importar_alunos():

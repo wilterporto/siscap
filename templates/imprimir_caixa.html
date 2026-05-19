@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-bs-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relação de Alunos - Caixa {{ caixa.nome_formatado }}</title>
+    
+    <!-- Favicon -->
+    {% if system_config and system_config.favicon_data %}
+    <link rel="icon" href="{{ url_for('display_system_image', image_type='favicon') }}">
+    {% endif %}
+    
+    <!-- Bootstrap 5.3 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-T3c6CoIi6uLrA9TneNEoa7RxnatzjcDSCmG1MXxSR1GAsXEV/Dwwykc2MPK8M2HN" crossorigin="anonymous">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9fa;
+            color: #212529;
+            font-size: 0.95rem;
+            padding-bottom: 50px;
+        }
+
+        /* Estilos da barra de controle no-print */
+        .action-bar {
+            background-color: #ffffff;
+            border-bottom: 1px solid #dee2e6;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            padding: 15px 0;
+            margin-bottom: 30px;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+
+        /* Área de impressão simulada na tela */
+        .print-preview-container {
+            background-color: #ffffff;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+            padding: 40px;
+            margin: 0 auto;
+            max-width: 900px;
+            min-height: 297mm; /* Proporção A4 aproximada */
+        }
+
+        /* Título e Destaque da Caixa */
+        .box-badge {
+            background-color: #f1f3f5;
+            border: 2px solid #ced4da;
+            border-radius: 8px;
+            color: #212529;
+            font-size: 1.8rem;
+            font-weight: 700;
+            padding: 5px 20px;
+            display: inline-block;
+            text-align: center;
+            min-width: 100px;
+        }
+
+        .header-title {
+            font-weight: 700;
+            color: #212529;
+            letter-spacing: -0.5px;
+            text-transform: uppercase;
+        }
+
+        /* Estilização da tabela de conferência */
+        .table-conferencia th {
+            background-color: #f8f9fa !important;
+            color: #495057;
+            font-weight: 600;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid #dee2e6;
+            padding: 12px 10px;
+        }
+
+        .table-conferencia td {
+            padding: 12px 10px;
+            vertical-align: middle;
+            border-bottom: 1px solid #e9ecef;
+        }
+
+        .table-conferencia tr:hover {
+            background-color: #fdfdfd;
+        }
+
+        /* Checkbox especial de conferência */
+        .conferencia-checkbox-container {
+            cursor: pointer;
+            display: inline-block;
+            position: relative;
+            user-select: none;
+        }
+
+        .conferencia-check-visual {
+            width: 22px;
+            height: 22px;
+            border: 2px solid #495057;
+            border-radius: 4px;
+            background-color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .conferencia-checkbox-container input {
+            position: absolute;
+            opacity: 0;
+            cursor: pointer;
+            height: 0;
+            width: 0;
+        }
+
+        /* Quando o input está checado */
+        .conferencia-checkbox-container input:checked ~ .conferencia-check-visual {
+            background-color: #198754;
+            border-color: #198754;
+        }
+
+        .conferencia-checkbox-container input:checked ~ .conferencia-check-visual::after {
+            content: "\F26E"; /* Código do bi-check no bootstrap icons */
+            font-family: "bootstrap-icons";
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        /* Linha riscada ao conferir aluno */
+        tr.conferido-row {
+            background-color: #f4fbf7 !important;
+            color: #6c757d;
+        }
+        
+        tr.conferido-row .aluno-nome {
+            text-decoration: line-through;
+            font-weight: 400;
+        }
+
+        /* Campo de observação e assinaturas */
+        .signing-area {
+            margin-top: 50px;
+            border-top: 2px dashed #dee2e6;
+            padding-top: 30px;
+        }
+
+        .signing-line {
+            border-bottom: 1px solid #495057;
+            width: 100%;
+            display: inline-block;
+            margin-top: 25px;
+        }
+
+        /* Ajustes específicos para Impressão */
+        @media print {
+            body {
+                background-color: #ffffff !important;
+                color: #000000 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                font-size: 9pt !important;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+
+            .print-preview-container {
+                border: none !important;
+                box-shadow: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+
+            .table-conferencia th {
+                background-color: #f8f9fa !important;
+                color: #000000 !important;
+                border-bottom: 2px solid #000000 !important;
+            }
+
+            .table-conferencia td {
+                border-bottom: 1px solid #dddddd !important;
+            }
+
+            .conferencia-check-visual {
+                border: 2px solid #000000 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            /* Garante que a marca de verificação seja impressa se estiver marcada */
+            .conferencia-checkbox-container input:checked ~ .conferencia-check-visual {
+                background-color: #ffffff !important;
+                border-color: #000000 !important;
+            }
+            
+            .conferencia-checkbox-container input:checked ~ .conferencia-check-visual::after {
+                color: #000000 !important;
+            }
+
+            tr.conferido-row {
+                background-color: transparent !important;
+            }
+
+            .signing-area {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- Barra de Ações Superior (Ocultada na Impressão) -->
+    <div class="action-bar no-print">
+        <div class="container-fluid max-width-900" style="max-width: 900px;">
+            <div class="row align-items-center g-3">
+                <div class="col-md-4">
+                    <a href="{{ url_for('caixas') }}" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-arrow-left me-2"></i>Voltar para Caixas
+                    </a>
+                </div>
+                <div class="col-md-4 text-center">
+                    <div class="bg-light rounded py-1 px-3 border d-inline-block">
+                        <small class="text-muted fw-bold">CONFERIDOS:</small>
+                        <span id="checked-count" class="fw-bold text-success">0</span>
+                        <small class="text-muted">/</small>
+                        <span class="fw-bold">{{ alunos|length }}</span>
+                        <span class="badge bg-success ms-2" id="checked-percent">0%</span>
+                    </div>
+                </div>
+                <div class="col-md-4 text-md-end d-flex justify-content-md-end gap-2">
+                    <button class="btn btn-outline-primary btn-sm" id="btn-toggle-all">
+                        <i class="bi bi-check-all me-1"></i>Marcar Todos
+                    </button>
+                    <button class="btn btn-success btn-sm px-4 fw-bold" onclick="window.print();">
+                        <i class="bi bi-printer me-2"></i>Imprimir Relação
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Container da Relação (Será o Conteúdo Impresso) -->
+    <div class="print-preview-container">
+        
+        <!-- Cabeçalho do Relatório -->
+        <div class="row align-items-center mb-4 pb-3 border-bottom">
+            <div class="col-8">
+                <div class="d-flex align-items-center mb-2">
+                    <i class="bi bi-mortarboard-fill text-primary fs-3 me-2 no-print"></i>
+                    <h5 class="mb-0 fw-bold text-muted" style="font-size: 0.95rem; letter-spacing: 1px;">SISCAP - SISTEMA DE CAIXAS</h5>
+                </div>
+                <h2 class="header-title mb-0">Relação de Alunos para Conferência</h2>
+                <p class="text-muted small mb-0 mt-1">
+                    <i class="bi bi-clock me-1"></i>Gerado em {{ data_hora_atual }}
+                </p>
+            </div>
+            <div class="col-4 text-end">
+                <div class="text-muted small mb-1 fw-bold text-uppercase">Caixa Física</div>
+                <div class="box-badge">{{ caixa.nome_formatado }}</div>
+            </div>
+        </div>
+
+        <!-- Estatísticas Rápidas do Relatório -->
+        <div class="row g-3 mb-4">
+            <div class="col-sm-6">
+                <div class="card bg-light border p-3 rounded">
+                    <div class="small text-muted fw-bold text-uppercase">Total de Alunos Contidos</div>
+                    <div class="fs-4 fw-bold mt-1 text-primary">{{ alunos|length }} Aluno(s)</div>
+                </div>
+            </div>
+            <div class="col-sm-6">
+                <div class="card bg-light border p-3 rounded h-100 d-flex flex-column justify-content-center">
+                    <div class="small text-muted fw-bold text-uppercase">Critério de Ordenação</div>
+                    <div class="fw-medium mt-1">Ordem Alfabética (A-Z)</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabela de Alunos -->
+        <div class="table-responsive">
+            <table class="table table-conferencia align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th class="text-center" style="width: 60px;">Conf.</th>
+                        <th class="text-center" style="width: 50px;">Nº</th>
+                        <th>Nome Completo</th>
+                        <th style="width: 150px;">Data Nasc.</th>
+                        <th>Nome da Mãe</th>
+                        <th class="text-end" style="width: 100px;">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for aluno in alunos %}
+                    <tr id="row-{{ aluno.id }}" class="aluno-row">
+                        <!-- Check de conferência -->
+                        <td class="text-center">
+                            <label class="conferencia-checkbox-container">
+                                <input type="checkbox" class="check-item no-print" data-aluno-id="{{ aluno.id }}" onchange="toggleRow('{{ aluno.id }}')">
+                                <span class="conferencia-check-visual"></span>
+                            </label>
+                        </td>
+                        <!-- Número de ordem -->
+                        <td class="text-center text-muted fw-bold small">{{ loop.index }}</td>
+                        <!-- Nome -->
+                        <td class="fw-bold text-dark aluno-nome">{{ aluno.nome }}</td>
+                        <!-- Data Nascimento -->
+                        <td>
+                            {% if aluno.data_nascimento %}
+                                {{ aluno.data_nascimento.strftime('%d/%m/%Y') }}
+                            {% else %}
+                                <span class="text-muted small">---</span>
+                            {% endif %}
+                        </td>
+                        <!-- Nome Mãe -->
+                        <td class="small">
+                            {% if aluno.nome_mae %}
+                                {{ aluno.nome_mae }}
+                            {% else %}
+                                <span class="text-muted italic small">Não cadastrado</span>
+                            {% endif %}
+                        </td>
+                        <!-- Status -->
+                        <td class="text-end">
+                            {% if aluno.ativo %}
+                                <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill px-2 py-1 small">Ativo</span>
+                            {% else %}
+                                <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill px-2 py-1 small">Inativo</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center py-5 text-muted">
+                            <i class="bi bi-people fs-1 d-block mb-2 opacity-50"></i>
+                            Esta caixa não possui alunos cadastrados.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Área de Observações e Assinaturas (Conferência Física) -->
+        {% if alunos|length > 0 %}
+        <div class="signing-area">
+            <div class="row">
+                <div class="col-12 mb-4">
+                    <h6 class="fw-bold text-uppercase small text-muted mb-2">Anotações / Observações da Conferência</h6>
+                    <div style="border: 1px solid #dee2e6; border-radius: 6px; height: 80px; width: 100%; background-color: #fafafa;"></div>
+                </div>
+            </div>
+            
+            <div class="row g-4 mt-2">
+                <div class="col-md-6">
+                    <h6 class="fw-bold text-uppercase small text-muted mb-0">Assinatura do Conferente</h6>
+                    <span class="signing-line"></span>
+                    <div class="d-flex justify-content-between mt-1 text-muted small">
+                        <span>Nome por Extenso:</span>
+                        <span>CPF:</span>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <h6 class="fw-bold text-uppercase small text-muted mb-0">Data e Parecer da Conferência</h6>
+                    <span class="signing-line"></span>
+                    <div class="d-flex justify-content-between mt-1 text-muted small">
+                        <span>Data: ____/____/_______</span>
+                        <span>[  ] Caixa Correta  [  ] Divergência</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+
+    <!-- Bootstrap Bundle JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL"
+        crossorigin="anonymous"></script>
+
+    <script>
+        // Função para alternar o estado visual da linha ao clicar no check
+        function toggleRow(alunoId) {
+            const row = document.getElementById(`row-${alunoId}`);
+            const checkbox = row.querySelector('.check-item');
+            
+            if (checkbox.checked) {
+                row.classList.add('conferido-row');
+            } else {
+                row.classList.remove('conferido-row');
+            }
+            
+            updateStats();
+        }
+
+        // Adiciona evento de clique nas linhas para facilitar a marcação rápida
+        document.addEventListener('DOMContentLoaded', () => {
+            const rows = document.querySelectorAll('.aluno-row');
+            rows.forEach(row => {
+                row.addEventListener('click', (e) => {
+                    // Impede o clique duplo se clicado diretamente no checkbox ou label
+                    if (e.target.closest('.conferencia-checkbox-container')) {
+                        return;
+                    }
+                    
+                    const checkbox = row.querySelector('.check-item');
+                    if (checkbox) {
+                        checkbox.checked = !checkbox.checked;
+                        toggleRow(checkbox.dataset.alunoId);
+                    }
+                });
+            });
+
+            // Lógica do botão Marcar/Desmarcar todos
+            const btnToggleAll = document.getElementById('btn-toggle-all');
+            if (btnToggleAll) {
+                let allChecked = false;
+                
+                btnToggleAll.addEventListener('click', () => {
+                    const checkboxes = document.querySelectorAll('.check-item');
+                    allChecked = !allChecked;
+                    
+                    checkboxes.forEach(cb => {
+                        cb.checked = allChecked;
+                        const row = document.getElementById(`row-${cb.dataset.alunoId}`);
+                        if (allChecked) {
+                            row.classList.add('conferido-row');
+                        } else {
+                            row.classList.remove('conferido-row');
+                        }
+                    });
+
+                    // Atualiza texto do botão
+                    if (allChecked) {
+                        btnToggleAll.innerHTML = '<i class="bi bi-x-circle me-1"></i>Desmarcar Todos';
+                        btnToggleAll.className = 'btn btn-outline-danger btn-sm';
+                    } else {
+                        btnToggleAll.innerHTML = '<i class="bi bi-check-all me-1"></i>Marcar Todos';
+                        btnToggleAll.className = 'btn btn-outline-primary btn-sm';
+                    }
+                    
+                    updateStats();
+                });
+            }
+
+            updateStats();
+        });
+
+        // Função que calcula estatísticas e atualiza na barra superior
+        function updateStats() {
+            const checkboxes = document.querySelectorAll('.check-item');
+            const total = checkboxes.length;
+            if (total === 0) return;
+            
+            let checkedCount = 0;
+            checkboxes.forEach(cb => {
+                if (cb.checked) checkedCount++;
+            });
+            
+            const percent = Math.round((checkedCount / total) * 100);
+            
+            // Atualiza interface
+            const countEl = document.getElementById('checked-count');
+            const percentEl = document.getElementById('checked-percent');
+            
+            if (countEl) countEl.textContent = checkedCount;
+            if (percentEl) {
+                percentEl.textContent = `${percent}%`;
+                if (percent === 100) {
+                    percentEl.className = 'badge bg-success ms-2';
+                } else if (percent > 0) {
+                    percentEl.className = 'badge bg-warning text-dark ms-2';
+                } else {
+                    percentEl.className = 'badge bg-secondary ms-2';
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>

@@ -65,6 +65,9 @@
                             </td>
                             <td class="fw-bold {% if count > 100 %}text-danger{% endif %}">{{ count }} / 100</td>
                             <td class="text-end pe-4">
+                                <a href="{{ url_for('imprimir_caixa', id=caixa.id) }}" target="_blank" class="btn btn-sm btn-outline-secondary me-1" title="Imprimir Relação de Alunos">
+                                    <i class="bi bi-printer"></i>
+                                </a>
                                 <button class="btn btn-sm btn-outline-info me-1" title="Editar"
                                     onclick="openEditModal('{{ caixa.id }}', '{{ caixa.letra }}', '{{ caixa.numero }}')">
                                     <i class="bi bi-pencil-square"></i>
@@ -160,13 +163,13 @@
             <div class="modal-body">
                 <form id="caixaForm" action="{{ url_for('caixas') }}" method="POST">
                     <div class="mb-3">
-                        <label for="letra" class="form-label text-muted small text-uppercase fw-bold">Letra</label>
+                        <label for="letra" class="form-label text-muted small text-uppercase fw-bold">Letra <span style="color: red;">*</span></label>
                         <input type="text" class="form-control form-control-lg" id="letra" name="letra" maxlength="1"
                             required placeholder="Ex: A" autofocus style="text-transform: uppercase;">
                         <div class="form-text text-muted">Apenas uma letra (A-Z).</div>
                     </div>
                     <div class="mb-4">
-                        <label for="numero" class="form-label text-muted small text-uppercase fw-bold">Número</label>
+                        <label for="numero" class="form-label text-muted small text-uppercase fw-bold">Número <span style="color: red;">*</span></label>
                         <input type="number" class="form-control form-control-lg" id="numero" name="numero" required
                             placeholder="Ex: 1">
                         <div class="form-text text-muted">Número da caixa.</div>

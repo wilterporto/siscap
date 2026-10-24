@@ -23,6 +23,9 @@ instance/
 *.sqlite
 *.sqlite3
 *.db
+backups/
+backup_producao.py
+restaurar_neon.py
 
 # Logs
 *.log
